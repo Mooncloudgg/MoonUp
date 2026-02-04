@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Moonup</title>
+    <style>
+      :root {
+        --bg: #1a1a1a;
+        --card: #2a2a2a;
+        --text: #e0e0e0;
+        --accent: #9933ff;
+        --danger: #ff4444;
+        --success: #00cc66;
+      }
+      body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
+      .container { max-width: 420px; margin: auto; }
+      h2 { color: var(--accent); margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+      
+      .config-section { background: var(--card); padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+      input { width: 100%; padding: 10px; box-sizing: border-box; background: #333; border: 1px solid #444; color: white; border-radius: 4px; }
+      
+      .token-alert { color: var(--danger); font-size: 0.8em; margin-top: 5px; display: none; font-weight: bold;}
+      
+      .path-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 0.85em; }
+      
+      /* Buttons allgemein */
+      button { cursor: pointer; border: none; border-radius: 4px; padding: 8px 15px; color: white; transition: opacity 0.2s; font-weight: bold; }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      
+      /* Spezifische Button Styles */
+      .btn-primary { background: var(--accent); }
+      .btn-update { background: #ff9900; animation: pulse 2s infinite; }
+      .btn-delete { background: #333; border: 1px solid #555; color: #aaa; padding: 8px 12px; }
+      .btn-delete:hover { background: var(--danger); color: white; border-color: var(--danger); }
+
+      .addon-item { background: var(--card); padding: 15px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+      
+      .version-row { font-size: 0.75em; color: #888; margin-top: 4px; }
+      
+      .addon-actions { display: flex; align-items: center; gap: 8px; }
+      .status-ok { color: var(--success); font-size: 0.85em; display: flex; align-items: center; gap: 4px; margin-right: 5px; }
+
+      @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+      #status-area { font-size: 0.85em; margin-top: 15px; text-align: center; color: #666; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Moonup Updater</h2>
+      
+      <div class="config-section">
+        <input type="password" id="token-input" placeholder="GitHub Token (ghp_...)" />
+        <div id="token-alert" class="token-alert">⚠️ Kein Token: Updates deaktiviert</div>
+        
+        <div class="path-row">
+          <button id="change-path-btn" class="btn-primary" style="background: #444;">Pfad</button>
+          <span id="path-display">Wähle WoW _retail_ Pfad...</span>
+        </div>
+      </div>
+
+      <div id="addon-list"></div>
+      
+      <div style="margin-top: 20px;">
+        <button id="refresh-btn" class="btn-primary" style="width: 100%;">Aktualisieren</button>
+      </div>
+      
+      <div id="status-area">Bereit</div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

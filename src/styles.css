@@ -1,0 +1,89 @@
+:root {
+  --bg: #09090b;
+  --card: #121216;
+  --accent: #8b5cf6;
+  --text: #ffffff;
+  --text-dim: #a1a1aa;
+  --border: #27272a;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, sans-serif;
+  display: flex;
+  justify-content: center;
+  padding: 30px;
+}
+
+.container { width: 100%; max-width: 400px; }
+
+.main-logo { width: 140px; display: block; margin: 0 auto 30px; filter: drop-shadow(0 0 15px rgba(139, 92, 246, 0.3)); }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.card h2 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin: 0 0 15px 0; }
+
+.path-box {
+  background: #000;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  font-family: monospace;
+}
+
+.addon-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.addon-item:last-child { border-bottom: none; }
+
+.addon-info { display: flex; flex-direction: column; }
+
+.addon-name { font-weight: 600; font-size: 1rem; margin-bottom: 2px; }
+
+.addon-repo { font-size: 0.7rem; color: var(--text-dim); }
+
+input {
+  width: 100%;
+  padding: 12px;
+  background: #000;
+  border: 1px solid var(--border);
+  color: white;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+button:hover { background: #7c3aed; transform: translateY(-1px); }
+
+button.loading { opacity: 0.5; cursor: wait; }
+
+#change-path-btn { background: transparent; border: 1px solid var(--border); color: var(--text-dim); font-size: 0.7rem; margin-top: 10px; padding: 6px 12px; }
+
+#change-path-btn:hover { border-color: var(--accent); color: white; }
+
+.status { text-align: center; font-size: 0.85rem; color: var(--accent); margin-top: 15px; min-height: 20px; }
