@@ -11,7 +11,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [windows-latest]
+        # HIER IST DIE ÄNDERUNG: Windows UND Mac
+        platform: [windows-latest, macos-latest]
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -43,6 +44,6 @@ jobs:
         with:
           tagName: v__VERSION__ 
           releaseName: 'Moonup v__VERSION__'
-          releaseBody: 'Großes Update v1.5: Auto-Update Funktion!'
+          releaseBody: 'Update v1.5.0: Jetzt für Windows und macOS!'
           releaseDraft: false
           prerelease: false
