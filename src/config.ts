@@ -8,7 +8,12 @@ export const TEXTS = {
     refresh: "Aktualisieren",
     pathBtn: "Pfad wählen",
     wait: "...",
-    error: "Err"
+    error: "Err",
+    // NEU: Die Texte für den Key-Button sind wieder da!
+    check: "Prüfen",
+    checking: "...",
+    keyOk: "OK",
+    keyErr: "Fehler"
   },
 
   // --- STATUS MELDUNGEN ---
@@ -30,7 +35,6 @@ export const TEXTS = {
     missing: "...",
     folderMissing: "Nicht installiert",
     tocMissing: "Beschädigt",
-    // NEU: Text wenn der Token falsch ist
     tokenError: "Token ungültig",
   },
 
@@ -44,7 +48,7 @@ export const TEXTS = {
   dialogs: {
     deleteTitle: "Addon löschen",
     deleteConfirm: (name: string) => `Möchtest du "${name}" wirklich unwiderruflich löschen?`,
-    deleteOk: "Weg damit!",
+    deleteOk: "Addon löschen!",
     deleteCancel: "Abbrechen"
   }
 };

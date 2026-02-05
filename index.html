@@ -6,66 +6,201 @@
     <title>Moonup</title>
     <style>
       :root {
-        --bg: #1a1a1a;
-        --card: #2a2a2a;
-        --text: #e0e0e0;
-        --accent: #9933ff;
-        --danger: #ff4444;
-        --success: #00cc66;
+        --bg: #09090b;
+        --card: #121216;
+        --accent: #7c3aed; 
+        --text: #ffffff;
+        --text-dim: #a1a1aa;
+        --border: #27272a;
+        --success: #10b981;
+        --danger: #ef4444;
       }
-      body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
-      .container { max-width: 420px; margin: auto; }
-      h2 { color: var(--accent); margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-      
-      .config-section { background: var(--card); padding: 15px; border-radius: 8px; margin-bottom: 15px; }
-      input { width: 100%; padding: 10px; box-sizing: border-box; background: #333; border: 1px solid #444; color: white; border-radius: 4px; }
-      
-      .token-alert { color: var(--danger); font-size: 0.8em; margin-top: 5px; display: none; font-weight: bold;}
-      
-      .path-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 0.85em; }
-      
-      /* Buttons allgemein */
-      button { cursor: pointer; border: none; border-radius: 4px; padding: 8px 15px; color: white; transition: opacity 0.2s; font-weight: bold; }
-      button:disabled { opacity: 0.5; cursor: not-allowed; }
-      
-      /* Spezifische Button Styles */
-      .btn-primary { background: var(--accent); }
-      .btn-update { background: #ff9900; animation: pulse 2s infinite; }
-      .btn-delete { background: #333; border: 1px solid #555; color: #aaa; padding: 8px 12px; }
-      .btn-delete:hover { background: var(--danger); color: white; border-color: var(--danger); }
 
-      .addon-item { background: var(--card); padding: 15px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-      
-      .version-row { font-size: 0.75em; color: #888; margin-top: 4px; }
-      
-      .addon-actions { display: flex; align-items: center; gap: 8px; }
-      .status-ok { color: var(--success); font-size: 0.85em; display: flex; align-items: center; gap: 4px; margin-right: 5px; }
+      body {
+        margin: 0;
+        background-color: var(--bg);
+        color: var(--text);
+        font-family: 'Inter', -apple-system, sans-serif;
+        display: flex;
+        justify-content: center;
+        padding: 20px; 
+      }
 
-      @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
-      #status-area { font-size: 0.85em; margin-top: 15px; text-align: center; color: #666; }
+      .container { width: 100%; max-width: 400px; }
+
+      .main-logo { 
+        width: 60px; 
+        display: block; 
+        margin: 0 auto 15px; 
+        filter: drop-shadow(0 0 10px rgba(124, 58, 237, 0.3)); 
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 15px; 
+        margin-bottom: 15px;
+      }
+
+      .card h2 { 
+        font-size: 0.8rem; 
+        text-transform: uppercase; 
+        letter-spacing: 0.05em; 
+        color: var(--text-dim); 
+        margin: 0 0 10px 0; 
+      }
+
+      .token-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      input {
+        flex-grow: 1;
+        width: auto;
+        padding: 10px; 
+        background: #000;
+        border: 1px solid var(--border);
+        color: white;
+        border-radius: 6px;
+        box-sizing: border-box;
+        outline: none;
+        transition: border-color 0.3s;
+        font-size: 0.9rem;
+      }
+
+      input:focus { border-color: var(--accent); }
+      input.valid { border-color: var(--success) !important; }
+      input.invalid { border-color: var(--danger) !important; }
+
+      .token-alert { color: var(--danger); font-size: 0.75em; margin-top: 5px; display: none; font-weight: bold; }
+
+      .path-box {
+        background: #000;
+        padding: 10px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        color: var(--accent);
+        border: 1px solid var(--border);
+        font-family: monospace;
+        word-break: break-all;
+        margin-bottom: 8px;
+      }
+
+      .addon-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0; 
+        border-bottom: 1px solid var(--border);
+      }
+
+      .addon-item:last-child { border-bottom: none; }
+
+      .addon-info { display: flex; flex-direction: column; }
+      .addon-name { font-weight: 600; font-size: 0.95rem; margin-bottom: 2px; }
+      .addon-repo { font-size: 0.7rem; color: var(--text-dim); }
+
+      .addon-actions {
+        display: flex;
+        align-items: center;
+        gap: 15px; 
+      }
+
+      button {
+        background: var(--accent);
+        color: white;
+        border: none;
+        padding: 8px 16px; 
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s;
+        font-size: 0.9rem;
+      }
+
+      button:hover { background: #6d28d9; transform: translateY(-1px); }
+      button:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); transform: none; }
+
+      #change-path-btn { background: transparent; border: 1px solid var(--border); color: var(--text-dim); font-size: 0.7rem; padding: 4px 10px; }
+      #change-path-btn:hover { border-color: var(--accent); color: white; }
+
+      #check-token-btn {
+        background: #333;
+        padding: 10px 12px; 
+        white-space: nowrap;
+      }
+      #check-token-btn:hover { background: #444; }
+
+      /* --- NEU: WENN STATUS OK IST --- */
+      /* Sieht aus wie ein Label, nicht wie ein Button */
+      #check-token-btn.valid-status {
+        background: transparent !important;
+        border: 1px solid var(--success);
+        color: var(--success);
+        cursor: default;
+        pointer-events: none; /* Verhindert Klicks */
+      }
+      /* -------------------------------- */
+
+      #refresh-btn {
+        width: 100%; 
+        margin-bottom: 8px;
+        padding: 12px;
+      }
+
+      #delete-btn {
+        width: 100%; 
+        background: #27272a; 
+        border: 1px solid #3f3f46;
+        padding: 8px;
+        font-size: 0.8rem;
+      }
+
+      .status-ok { color: var(--success); font-size: 0.9em; }
+
+      .status { text-align: center; font-size: 0.8rem; color: var(--text-dim); margin-top: 10px; min-height: 18px; }
     </style>
   </head>
   <body>
     <div class="container">
-      <h2>Moonup Updater</h2>
       
-      <div class="config-section">
-        <input type="password" id="token-input" placeholder="GitHub Token (ghp_...)" />
-        <div id="token-alert" class="token-alert">⚠️ Kein Token: Updates deaktiviert</div>
+      <img src="app-icon.png" class="main-logo" alt="Moonup">
+
+      <div class="card">
+        <h2>Konfiguration</h2>
         
-        <div class="path-row">
-          <button id="change-path-btn" class="btn-primary" style="background: #444;">Pfad</button>
-          <span id="path-display">Wähle WoW _retail_ Pfad...</span>
+        <div style="margin-bottom: 15px;">
+           <div class="token-row">
+             <input type="password" id="token-input" placeholder="GitHub Token..." />
+             <button id="check-token-btn">Prüfen</button>
+           </div>
+           <div id="token-alert" class="token-alert">⚠️ Token ungültig</div>
+        </div>
+
+        <div>
+           <div id="path-display" class="path-box">Pfad wählen...</div>
+           <button id="change-path-btn">Pfad ändern</button>
         </div>
       </div>
 
-      <div id="addon-list"></div>
-      
-      <div style="margin-top: 20px;">
-        <button id="refresh-btn" class="btn-primary" style="width: 100%;">Aktualisieren</button>
+      <div class="card">
+        <h2>Addons</h2>
+        <div id="addon-list"></div>
       </div>
+
+      <button id="refresh-btn" disabled>
+        Installieren / Aktualisieren
+      </button>
       
-      <div id="status-area">Bereit</div>
+      <button id="delete-btn">
+        Alle Addons löschen
+      </button>
+
+      <div class="status" id="status-text">Bereit.</div>
+
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

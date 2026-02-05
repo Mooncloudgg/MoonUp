@@ -73,16 +73,13 @@ async fn check_for_updates(token: String, repo: String) -> Result<String, String
         .header("User-Agent", "Moonup")
         .send().await.map_err(|e| e.to_string())?;
 
-    // WICHTIGE ÄNDERUNG HIER: Status Code prüfen!
     let status = res.status();
 
     if status.as_u16() == 401 || status.as_u16() == 403 {
-        // 401 = Unauthorized (Token falsch), 403 = Forbidden
         return Ok("AUTH_ERROR".to_string());
     }
 
     if !status.is_success() {
-        // Andere Fehler (z.B. 404) -> Gehe davon aus, dass es einfach kein Release gibt -> Main
         return Ok("Main".to_string());
     }
 
@@ -174,6 +171,10 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        // --- NEU: Updater und Process Plugins aktiviert ---
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
+        // --------------------------------------------------
         .invoke_handler(tauri::generate_handler![check_for_updates, install_addon, get_installed_version, uninstall_addon])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
