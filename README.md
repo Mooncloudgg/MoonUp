@@ -24,7 +24,7 @@
 
 * ✅ **Automatische Updates:** Prüft bei jedem Start, ob neue Versionen auf GitHub verfügbar sind.
 * ✅ **Sicherheit:** Funktioniert nur mit gültigem Token.
-* ✅ **Clean:** Keine Installation nötig (Portable).
+* ✅ **Clean:** Installation für Auto-Updates notwendig.
 * ✅ **Cross-Platform:** Läuft auf Windows und macOS.
 
 ![Screenshot der App](screenshot.png)
