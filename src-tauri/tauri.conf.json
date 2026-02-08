@@ -1,6 +1,6 @@
 {
   "productName": "Moonup",
-  "version": "1.6.1",
+  "version": "1.6.4",
   "identifier": "com.mooncloud.moonup",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -27,7 +27,8 @@
   "bundle": {
     "active": true,
     "targets": [
-      "updater",
+      "nsis",
+      "msi",
       "dmg"
     ],
     "icon": [
@@ -37,7 +38,14 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "publisher": "Mooncloud"
+    "publisher": "Mooncloud",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false,
+        "installerLanguages": ["en-US"]
+      }
+    }
   },
   "plugins": {
     "shell": {
