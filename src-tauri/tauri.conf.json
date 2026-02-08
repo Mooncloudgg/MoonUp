@@ -1,6 +1,6 @@
 {
   "productName": "Moonup",
-  "version": "1.6.4",
+  "version": "1.6.5",
   "identifier": "com.mooncloud.moonup",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -38,14 +38,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "publisher": "Mooncloud",
-    "windows": {
-      "nsis": {
-        "installMode": "currentUser",
-        "displayLanguageSelector": false,
-        "installerLanguages": ["en-US"]
-      }
-    }
+    "publisher": "Mooncloud"
   },
   "plugins": {
     "shell": {
