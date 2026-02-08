@@ -1,7 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, ask } from "@tauri-apps/plugin-dialog";
-import { check } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
 import { TEXTS, ADDONS } from "./config";
 
 window.addEventListener("DOMContentLoaded", async () => {
@@ -12,10 +10,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   const addonList = document.querySelector("#addon-list") as HTMLElement;
   const statusArea = document.querySelector("#status-text") as HTMLElement;
   const refreshBtn = document.querySelector("#refresh-btn") as HTMLButtonElement;
+  const updateAllBtn = document.querySelector("#update-all-btn") as HTMLButtonElement;
   const deleteBtn = document.querySelector("#delete-btn") as HTMLButtonElement;
   const pathBtn = document.querySelector("#change-path-btn") as HTMLButtonElement;
 
-  refreshBtn.textContent = TEXTS.buttons.refresh;
+  refreshBtn.textContent = "🔄"; 
   pathBtn.textContent = TEXTS.buttons.pathBtn; 
   checkTokenBtn.textContent = TEXTS.buttons.check;
   tokenAlert.textContent = TEXTS.alerts.noToken;
@@ -23,75 +22,40 @@ window.addEventListener("DOMContentLoaded", async () => {
   let currentWowPath = localStorage.getItem("moonup_wow_path") || "";
   let isTokenValid = false;
 
-  async function checkForAppUpdates() {
-    try {
-        const update = await check(); // Simulation entfernen, falls du fertig bist
-        if (update && update.available) {
-            console.log("Update gefunden:", update.version);
-            const yes = await ask(`Eine neue Version (${update.version}) ist verfügbar!\nJetzt herunterladen und installieren?`, {
-                title: 'Moonup Update',
-                kind: 'info',
-                okLabel: 'Ja, Update starten',
-                cancelLabel: 'Später'
-            });
-
-            if (yes) {
-                statusArea.textContent = `Lade App-Update v${update.version}...`;
-                await update.downloadAndInstall();
-                await relaunch();
-            }
-        }
-    } catch (error) {
-        console.error("App-Update Check fehlgeschlagen (im Dev-Modus normal):", error);
-    }
-  }
-
   async function checkTokenOnline() {
     const token = tokenInput.value.trim();
-    checkTokenBtn.disabled = true;
-    checkTokenBtn.textContent = TEXTS.buttons.checking;
-    
+    if(document.activeElement === checkTokenBtn) {
+        checkTokenBtn.disabled = true;
+        checkTokenBtn.textContent = TEXTS.buttons.checking;
+    }
     if (!token) {
         setTokenStatus(false, TEXTS.alerts.noToken);
         resetCheckBtn();
         return;
     }
-
     try {
-        const response = await fetch("https://api.github.com/user", {
-            headers: { Authorization: `token ${token}` },
-        });
-
-        if (response.status === 200) {
-            setTokenStatus(true);
-        } else {
-            setTokenStatus(false, TEXTS.versions.tokenError);
-        }
+        const isValid = await invoke("validate_token", { token });
+        if (isValid) setTokenStatus(true);
+        else setTokenStatus(false, TEXTS.versions.tokenError);
     } catch (e) {
         setTokenStatus(false, "Verbindungsfehler");
     }
     resetCheckBtn();
   }
 
-  // --- HIER WURDE GEÄNDERT ---
   function resetCheckBtn() {
     checkTokenBtn.disabled = false;
-    
     if (isTokenValid) {
-        // Status OK: Wird zum Label
-        checkTokenBtn.textContent = TEXTS.buttons.keyOk; // "OK"
+        checkTokenBtn.textContent = TEXTS.buttons.keyOk; 
         checkTokenBtn.classList.add("valid-status");
     } else {
-        // Status nicht OK: Wird wieder zum Button
-        checkTokenBtn.textContent = TEXTS.buttons.check; // "Prüfen"
+        checkTokenBtn.textContent = TEXTS.buttons.check;
         checkTokenBtn.classList.remove("valid-status");
     }
   }
-  // ---------------------------
 
   function setTokenStatus(valid: boolean, msg: string = "") {
     isTokenValid = valid;
-    
     if (valid) {
         tokenInput.classList.remove("invalid");
         tokenInput.classList.add("valid");
@@ -102,7 +66,6 @@ window.addEventListener("DOMContentLoaded", async () => {
         tokenAlert.textContent = msg;
         tokenAlert.style.display = "block";
     }
-    
     updateMainButton();
     updateUI();
   }
@@ -111,27 +74,21 @@ window.addEventListener("DOMContentLoaded", async () => {
     refreshBtn.disabled = !currentWowPath || !isTokenValid;
   }
 
-  function formatLocalStatus(rawStatus: string): string {
-    if (rawStatus === "Ordner fehlt") return TEXTS.versions.folderMissing;
-    if (rawStatus === "TOC fehlt") return TEXTS.versions.tocMissing;
-    return rawStatus;
-  }
-
-  function formatRemoteStatus(rawStatus: string): string {
-    if (rawStatus === "AUTH_ERROR") return `<span style="color:#ff4444">${TEXTS.versions.tokenError}</span>`;
-    return rawStatus;
-  }
-
   async function updateUI() {
-    addonList.innerHTML = ADDONS.map(addon => {
+    let updatesAvailableCount = 0;
+    
+    const mainAddons = ADDONS.filter(a => !(a as any).isOptional);
+    const optionalAddons = ADDONS.filter(a => (a as any).isOptional);
+
+    const renderAddon = (addon: any) => {
       const rawLocal = localStorage.getItem(`version_${addon.folder}`) || TEXTS.versions.checking;
       const rawRemote = localStorage.getItem(`latest_${addon.folder}`) || TEXTS.versions.missing;
-      const displayLocal = formatLocalStatus(rawLocal);
-      const displayRemote = formatRemoteStatus(rawRemote);
-      const isInstalled = !["Ordner fehlt", "TOC fehlt", "Prüfen...", "Pfad ungültig", "Fehler"].includes(rawLocal);
+      const isInstalled = !["Ordner fehlt", "TOC fehlt", "Prüfen...", "Pfad ungültig", "Fehler", "Version unbekannt"].includes(rawLocal);
       const localNum = parseInt(rawLocal.replace(/\D/g, "")) || 0;
       const remoteNum = parseInt(rawRemote.replace(/\D/g, "")) || 0;
-      const canUpdate = isInstalled && isTokenValid && rawRemote !== "AUTH_ERROR" && (remoteNum > localNum || (rawRemote === "Main" && localNum === 0));
+      const canUpdate = isInstalled && isTokenValid && rawRemote !== "AUTH_ERROR" && (remoteNum > localNum);
+      
+      if (canUpdate) updatesAvailableCount++;
 
       let actionHtml = '';
       if (!isInstalled) {
@@ -142,22 +99,58 @@ window.addEventListener("DOMContentLoaded", async () => {
         actionHtml = !isTokenValid ? `<span style="font-size: 1.2em">🔒</span>` : `<span class="status-ok">${TEXTS.buttons.current}</span>`;
       }
 
-      const deleteHtml = isInstalled ? `<button class="btn-delete delete-btn" data-folder="${addon.folder}" data-label="${addon.label}" title="${TEXTS.buttons.deleteTitle}">🗑️</button>` : '';
+      const displayLocal = rawLocal === "Ordner fehlt" ? TEXTS.versions.folderMissing : (rawLocal === "TOC fehlt" ? TEXTS.versions.tocMissing : rawLocal);
+      const displayRemote = rawRemote === "AUTH_ERROR" ? `<span style="color:#ff4444">${TEXTS.versions.tokenError}</span>` : rawRemote;
 
-      return `<div class="addon-item">
-          <div><span style="font-weight: bold;">${addon.label}</span><div class="version-row">${TEXTS.versions.localLabel} ${displayLocal} | ${TEXTS.versions.remoteLabel} ${displayRemote}</div></div>
-          <div class="addon-actions">${actionHtml}${deleteHtml}</div>
+      return `
+        <div class="addon-item">
+          <div><span class="addon-name">${addon.label}</span><div class="version-row">${TEXTS.versions.localLabel} ${displayLocal} | ${TEXTS.versions.remoteLabel} ${displayRemote}</div></div>
+          <div class="addon-actions">${actionHtml}${isInstalled ? `<button class="btn-delete delete-btn" data-folder="${addon.folder}" data-label="${addon.label}">🗑️</button>` : ''}</div>
         </div>`;
-    }).join('');
+    };
 
+    let html = mainAddons.map(renderAddon).join('');
+    
+    if (optionalAddons.length > 0) {
+        html += `<div class="optional-separator"><span>${TEXTS.versions.optionalHeader}</span></div>`;
+        html += optionalAddons.map(renderAddon).join('');
+    }
+
+    addonList.innerHTML = html;
+
+    if (updateAllBtn) {
+        updateAllBtn.disabled = !(updatesAvailableCount > 0 && isTokenValid);
+        updateAllBtn.textContent = updatesAvailableCount > 0 ? `Alle aktualisieren (${updatesAvailableCount}) 🚀` : "Alles aktuell ✨";
+    }
+    
     document.querySelectorAll(".install-btn").forEach(btn => btn.addEventListener("click", (e) => install(e.target as HTMLButtonElement)));
     document.querySelectorAll(".delete-btn").forEach(btn => btn.addEventListener("click", (e) => uninstall(e.currentTarget as HTMLButtonElement)));
     updateMainButton();
   }
 
+  async function updateAll() {
+      if (!isTokenValid || !currentWowPath) return;
+      updateAllBtn.disabled = true;
+      updateAllBtn.textContent = "Arbeite...";
+      for (const addon of ADDONS) {
+          const rawLocal = localStorage.getItem(`version_${addon.folder}`) || "";
+          const rawRemote = localStorage.getItem(`latest_${addon.folder}`) || "";
+          const localNum = parseInt(rawLocal.replace(/\D/g, "")) || 0;
+          const remoteNum = parseInt(rawRemote.replace(/\D/g, "")) || 0;
+          if (!["Ordner fehlt", "TOC fehlt"].includes(rawLocal) && remoteNum > localNum) {
+              statusArea.textContent = `Aktualisiere ${addon.label}...`;
+              try { await invoke("install_addon", { token: tokenInput.value, repo: addon.repo, name: addon.folder, path: currentWowPath }); }
+              catch (e) { statusArea.textContent = `Fehler: ${e}`; }
+          }
+      }
+      statusArea.textContent = "Alle Updates fertig!";
+      await checkUpdates();
+  }
+
   async function checkUpdates() {
     if (!currentWowPath || !isTokenValid) return;
     statusArea.textContent = TEXTS.status.searching;
+    updateUI();
     for (const addon of ADDONS) {
       try {
         const v = await invoke("get_installed_version", { path: currentWowPath, folder: addon.folder, search: addon.search });
@@ -172,52 +165,31 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   async function install(btn: HTMLButtonElement) {
     if(!isTokenValid) return;
-    const token = tokenInput.value.trim();
     const { repo, folder } = btn.dataset;
-    if (!token || !currentWowPath || !repo || !folder) return;
     btn.disabled = true; btn.textContent = TEXTS.buttons.wait;
-    statusArea.textContent = `${TEXTS.status.installing} ${folder}...`;
     try {
-      await invoke("install_addon", { token, repo, name: folder, path: currentWowPath });
-      statusArea.textContent = TEXTS.status.done;
+      await invoke("install_addon", { token: tokenInput.value, repo, name: folder, path: currentWowPath });
       await checkUpdates();
-    } catch (e) { statusArea.textContent = `Fehler: ${e}`; btn.disabled = false; btn.textContent = TEXTS.buttons.error; }
+    } catch (e) { 
+        statusArea.textContent = `Fehler: ${e}`; 
+        btn.disabled = false;
+        btn.textContent = "Fehler";
+    }
   }
 
   async function uninstall(btn: HTMLButtonElement) {
     const folderName = btn.dataset.folder;
     const label = btn.dataset.label;
-    if (!currentWowPath || !folderName) return;
-    const yes = await ask(TEXTS.dialogs.deleteConfirm(label || ""), { title: TEXTS.dialogs.deleteTitle, kind: 'warning', okLabel: TEXTS.dialogs.deleteOk, cancelLabel: TEXTS.dialogs.deleteCancel });
+    const yes = await ask(TEXTS.dialogs.deleteConfirm(label || ""), { title: TEXTS.dialogs.deleteTitle, kind: 'warning' });
     if (!yes) return;
     try {
       await invoke("uninstall_addon", { path: currentWowPath, name: folderName });
       localStorage.setItem(`version_${folderName}`, "Ordner fehlt");
       updateUI();
-      statusArea.textContent = `${label} ${TEXTS.status.deleted}`;
     } catch (e) { statusArea.textContent = `Fehler: ${e}`; }
   }
 
-  // --- EVENTS ---
-  tokenInput.addEventListener("input", () => {
-    localStorage.setItem("moonup_token", tokenInput.value);
-    
-    tokenInput.classList.remove("valid", "invalid");
-    tokenAlert.style.display = "none";
-    
-    isTokenValid = false;
-    
-    // SOFORT RESET: Button wird wieder normal
-    checkTokenBtn.textContent = TEXTS.buttons.check;
-    checkTokenBtn.classList.remove("valid-status");
-    
-    updateMainButton();
-    updateUI(); 
-  });
-
-  checkTokenBtn.addEventListener("click", checkTokenOnline);
-  refreshBtn.addEventListener("click", checkUpdates);
-  pathBtn.addEventListener("click", async () => {
+  async function selectPath() {
     const selected = await open({ directory: true });
     if (selected && typeof selected === 'string') {
       currentWowPath = selected;
@@ -226,17 +198,40 @@ window.addEventListener("DOMContentLoaded", async () => {
       updateMainButton();
       if(isTokenValid) checkUpdates();
     }
+  }
+
+  tokenInput.addEventListener("input", () => {
+    localStorage.setItem("moonup_token", tokenInput.value);
+    isTokenValid = false;
+    updateUI(); 
   });
+
+  checkTokenBtn.addEventListener("click", checkTokenOnline);
+  refreshBtn.addEventListener("click", checkUpdates);
+  updateAllBtn.addEventListener("click", updateAll);
+  pathBtn.addEventListener("click", selectPath);
+  pathDisplay.addEventListener("click", selectPath);
+
   deleteBtn.addEventListener("click", async () => {
-      if(confirm("Alles löschen?")) statusArea.textContent = "Gelöscht.";
+      const confirmAll = await ask("Möchtest du wirklich ALLE Addons löschen?", { title: "Alle Addons löschen", kind: 'warning' });
+      if (confirmAll) {
+          statusArea.textContent = "Lösche alle Addons...";
+          for (const addon of ADDONS) {
+              await invoke("uninstall_addon", { path: currentWowPath, name: addon.folder });
+              localStorage.setItem(`version_${addon.folder}`, "Ordner fehlt");
+          }
+          statusArea.textContent = "Alle Addons gelöscht.";
+          updateUI();
+      }
   });
 
   tokenInput.value = localStorage.getItem("moonup_token") || "";
   if (currentWowPath) pathDisplay.textContent = currentWowPath;
-  
-  if(tokenInput.value) checkTokenOnline();
-  else setTokenStatus(false, TEXTS.alerts.noToken);
-  
   updateUI();
-  checkForAppUpdates();
+
+  if(tokenInput.value) {
+      await checkTokenOnline();
+      if(isTokenValid && currentWowPath) checkUpdates();
+  }
+  setInterval(() => { if (tokenInput.value) checkTokenOnline(); }, 30 * 60 * 1000);
 });

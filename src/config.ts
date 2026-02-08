@@ -1,5 +1,5 @@
 export const TEXTS = {
-  // --- BUTTONS ---
+  // ... (Buttons und Status bleiben gleich)
   buttons: {
     install: "Installieren",
     update: "Update",
@@ -9,14 +9,11 @@ export const TEXTS = {
     pathBtn: "Pfad wählen",
     wait: "...",
     error: "Err",
-    // NEU: Die Texte für den Key-Button sind wieder da!
     check: "Prüfen",
     checking: "...",
     keyOk: "OK",
     keyErr: "Fehler"
   },
-
-  // --- STATUS MELDUNGEN ---
   status: {
     ready: "Bereit.",
     searching: "Suche Updates...",
@@ -26,8 +23,6 @@ export const TEXTS = {
     checkError: "Fehler beim Prüfen",
     authError: "Token ungültig / Zugriff verweigert"
   },
-
-  // --- VERSION ANZEIGE ---
   versions: {
     localLabel: "Lokal:",
     remoteLabel: "GitHub:",
@@ -36,15 +31,12 @@ export const TEXTS = {
     folderMissing: "Nicht installiert",
     tocMissing: "Beschädigt",
     tokenError: "Token ungültig",
+    optionalHeader: "Optionale Addons" 
   },
-
-  // --- WARNUNGEN & FEHLER ---
   alerts: {
     noToken: "⚠️ Token erforderlich: Updates deaktiviert",
     pathMissing: "Bitte WoW-Pfad auswählen",
   },
-
-  // --- DIALOGE ---
   dialogs: {
     deleteTitle: "Addon löschen",
     deleteConfirm: (name: string) => `Möchtest du "${name}" wirklich unwiderruflich löschen?`,
@@ -55,7 +47,7 @@ export const TEXTS = {
 
 export const ADDONS = [
   { 
-    label: "MoonReminder", 
+    label: "TimelineReminders", 
     folder: "TimelineReminders", 
     search: "Timeline", 
     repo: "Mooncloudgg/MoonReminder" 
@@ -65,5 +57,12 @@ export const ADDONS = [
     folder: "MooncloudTools", 
     search: "Moonc", 
     repo: "Mooncloudgg/MooncloudTools" 
+  },
+  { 
+    label: "QUI", 
+    folder: "QUI", 
+    search: "Version", 
+    repo: "zol-wow/QUI",
+    isOptional: true 
   }
 ];

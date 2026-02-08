@@ -1,14 +1,23 @@
 {
-  "identifier": "desktop-capability",
-  "platforms": [
-    "macOS",
-    "windows",
-    "linux"
-  ],
-  "windows": [
-    "main"
-  ],
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": ["main"],
   "permissions": [
-    "updater:default"
+    "core:default",
+    "shell:allow-open",
+    "dialog:allow-open",
+    "dialog:allow-ask",
+    "fs:allow-read-text-file",
+    "fs:allow-write-file",
+    "fs:allow-exists",
+    "fs:allow-create",
+    "fs:allow-remove",
+    "fs:allow-read-dir",
+    "fs:scope-app-recursive",
+    {
+      "identifier": "fs:scope",
+      "allow": ["**"]
+    }
   ]
 }

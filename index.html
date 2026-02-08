@@ -8,7 +8,7 @@
       :root {
         --bg: #09090b;
         --card: #121216;
-        --accent: #7c3aed; 
+        --accent: #5b21b6; 
         --text: #ffffff;
         --text-dim: #a1a1aa;
         --border: #27272a;
@@ -23,16 +23,20 @@
         font-family: 'Inter', -apple-system, sans-serif;
         display: flex;
         justify-content: center;
-        padding: 20px; 
+        /* GEÄNDERT: Wieder mehr Luft oben/unten (20px) */
+        padding: 20px 10px; 
       }
 
       .container { width: 100%; max-width: 400px; }
 
-      .main-logo { 
-        width: 60px; 
+      .main-banner { 
+        width: auto; 
+        max-width: 260px; 
+        height: auto;
         display: block; 
-        margin: 0 auto 15px; 
-        filter: drop-shadow(0 0 10px rgba(124, 58, 237, 0.3)); 
+        /* GEÄNDERT: Mehr Abstand zur ersten Karte (20px) */
+        margin: 0 auto 20px; 
+        filter: drop-shadow(0 0 10px rgba(91, 33, 182, 0.4)); 
       }
 
       .card {
@@ -40,16 +44,27 @@
         border: 1px solid var(--border);
         border-radius: 12px;
         padding: 15px; 
-        margin-bottom: 15px;
+        margin-bottom: 15px; /* Wieder Standard-Abstand */
       }
 
-      .card h2 { 
+      .addon-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        padding-bottom: 5px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .addon-header h2, .card h2 { 
         font-size: 0.8rem; 
         text-transform: uppercase; 
         letter-spacing: 0.05em; 
         color: var(--text-dim); 
-        margin: 0 0 10px 0; 
+        margin: 0;
       }
+
+      .card h2 { margin-bottom: 10px; }
 
       .token-row {
         display: flex;
@@ -82,11 +97,18 @@
         padding: 10px;
         border-radius: 6px;
         font-size: 0.75rem;
-        color: var(--accent);
+        color: #9333ea; 
         border: 1px solid var(--border);
         font-family: monospace;
         word-break: break-all;
         margin-bottom: 8px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .path-box:hover {
+        background: #111;
+        border-color: var(--accent);
       }
 
       .addon-item {
@@ -98,10 +120,6 @@
       }
 
       .addon-item:last-child { border-bottom: none; }
-
-      .addon-info { display: flex; flex-direction: column; }
-      .addon-name { font-weight: 600; font-size: 0.95rem; margin-bottom: 2px; }
-      .addon-repo { font-size: 0.7rem; color: var(--text-dim); }
 
       .addon-actions {
         display: flex;
@@ -121,34 +139,48 @@
         font-size: 0.9rem;
       }
 
-      button:hover { background: #6d28d9; transform: translateY(-1px); }
+      button:hover { background: #4c1d95; transform: translateY(-1px); }
       button:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); transform: none; }
 
       #change-path-btn { background: transparent; border: 1px solid var(--border); color: var(--text-dim); font-size: 0.7rem; padding: 4px 10px; }
       #change-path-btn:hover { border-color: var(--accent); color: white; }
 
-      #check-token-btn {
-        background: #333;
-        padding: 10px 12px; 
-        white-space: nowrap;
-      }
-      #check-token-btn:hover { background: #444; }
-
-      /* --- NEU: WENN STATUS OK IST --- */
-      /* Sieht aus wie ein Label, nicht wie ein Button */
+      #check-token-btn { background: #333; padding: 10px 12px; white-space: nowrap; }
+      
       #check-token-btn.valid-status {
         background: transparent !important;
         border: 1px solid var(--success);
         color: var(--success);
         cursor: default;
-        pointer-events: none; /* Verhindert Klicks */
+        pointer-events: none; 
       }
-      /* -------------------------------- */
+
+      .controls-row { display: flex; gap: 10px; margin-bottom: 8px; }
+
+      #update-all-btn { width: 100%; padding: 12px; font-size: 1rem; }
 
       #refresh-btn {
-        width: 100%; 
-        margin-bottom: 8px;
-        padding: 12px;
+        background: transparent;
+        color: var(--text-dim);
+        padding: 4px;
+        font-size: 1.1rem;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.3s, background 0.3s;
+      }
+      
+      #refresh-btn:hover {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      #refresh-btn:active {
+        transform: rotate(180deg);
+        transition: transform 0.4s ease;
       }
 
       #delete-btn {
@@ -157,21 +189,41 @@
         border: 1px solid #3f3f46;
         padding: 8px;
         font-size: 0.8rem;
+        margin-top: 5px;
       }
 
-      .status-ok { color: var(--success); font-size: 0.9em; }
+      .optional-separator {
+        display: flex;
+        align-items: center;
+        margin: 20px 0 10px 0;
+        color: var(--text-dim);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
 
+      .optional-separator::before, .optional-separator::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+      }
+
+      .optional-separator span { padding: 0 10px; }
+
+      .status-ok { color: var(--success); font-size: 0.9em; }
       .status { text-align: center; font-size: 0.8rem; color: var(--text-dim); margin-top: 10px; min-height: 18px; }
+      .version-row { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; }
+      .addon-name { font-weight: 600; font-size: 0.95rem; }
     </style>
   </head>
   <body>
     <div class="container">
       
-      <img src="app-icon.png" class="main-logo" alt="Moonup">
+      <img src="APP_BANNER.png" class="main-banner" alt="Mooncloud Banner">
 
       <div class="card">
         <h2>Konfiguration</h2>
-        
         <div style="margin-bottom: 15px;">
            <div class="token-row">
              <input type="password" id="token-input" placeholder="GitHub Token..." />
@@ -179,28 +231,26 @@
            </div>
            <div id="token-alert" class="token-alert">⚠️ Token ungültig</div>
         </div>
-
         <div>
-           <div id="path-display" class="path-box">Pfad wählen...</div>
+           <div id="path-display" class="path-box" title="Klicken zum Ändern">Pfad wählen...</div>
            <button id="change-path-btn">Pfad ändern</button>
         </div>
       </div>
 
       <div class="card">
-        <h2>Addons</h2>
+        <div class="addon-header">
+            <h2>Addons</h2>
+            <button id="refresh-btn" title="Liste neu laden">🔄</button>
+        </div>
         <div id="addon-list"></div>
       </div>
 
-      <button id="refresh-btn" disabled>
-        Installieren / Aktualisieren
-      </button>
+      <div class="controls-row">
+        <button id="update-all-btn" disabled>Alle aktualisieren 🚀</button>
+      </div>
       
-      <button id="delete-btn">
-        Alle Addons löschen
-      </button>
-
+      <button id="delete-btn">Alle Addons löschen</button>
       <div class="status" id="status-text">Bereit.</div>
-
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

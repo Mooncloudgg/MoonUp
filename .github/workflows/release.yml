@@ -1,20 +1,22 @@
-name: Release
+name: Release Creation
+
+permissions:
+  contents: write
+
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*' # Startet, wenn wir einen Tag wie v1.6.0 pushen
 
 jobs:
-  publish-tauri:
-    permissions:
-      contents: write
+  build-tauri:
     strategy:
       fail-fast: false
       matrix:
-        # HIER IST DIE ÄNDERUNG: Windows UND Mac
-        platform: [windows-latest, macos-latest]
+        platform: [macos-latest, windows-latest]
 
     runs-on: ${{ matrix.platform }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -26,8 +28,9 @@ jobs:
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
+      # Nur für Linux nötig, lassen wir aber drin falls du es mal brauchst (stört nicht)
       - name: install dependencies (ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
@@ -35,15 +38,13 @@ jobs:
       - name: install frontend dependencies
         run: npm install
 
-      - name: Build and Upload
+      - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
-          tagName: v__VERSION__ 
+          tagName: ${{ github.ref_name }}
           releaseName: 'Moonup v__VERSION__'
-          releaseBody: 'Update v1.5.0: Jetzt für Windows und macOS!'
-          releaseDraft: false
+          releaseBody: 'Automatische Version erstellt via GitHub Actions.'
+          releaseDraft: true
           prerelease: false
