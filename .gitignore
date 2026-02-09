@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+*.key
+*.pub
+src-tauri/target/
+src-tauri/moonup.key
+src-tauri/moonup.key.pub
