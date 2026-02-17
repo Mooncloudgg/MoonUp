@@ -44,7 +44,7 @@ Da Moonup ein privates Community-Projekt ist und keine kostspielige digitale Sig
 * **Open Source:** Der gesamte Quellcode ist hier auf GitHub einsehbar. Nichts ist versteckt.
 * **GitHub Actions:** Die `.exe` und `.dmg` Dateien werden automatisch auf GitHub-Servern gebaut, nicht auf einem privaten PC. Das garantiert, dass der Code im Repo mit dem Programm übereinstimmt.
 * **Viren-Scan:** Die Datei ist sauber. Ein exemplarischer Scan kann hier eingesehen werden:
-  👉 [**Beispiel Scan-Ergebnis (Jotti)**](https://virusscan.jotti.org/de-DE/filescanjob/0sto1u6mgz)
+  👉 [**Beispiel Scan-Ergebnis (Jotti)**](https://virusscan.jotti.org/de-DE/filescanjob/r07ctk16vy)
 
 ---
 
