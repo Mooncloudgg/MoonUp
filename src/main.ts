@@ -277,7 +277,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       
       updateAllBtn.addEventListener("click", async () => {
           updateAllBtn.disabled = true;
-          const originalText = updateAllBtn.textContent;
+          // REMOVED: const originalText = updateAllBtn.textContent;
           updateAllBtn.innerHTML = `<span class="loader"></span> ${TEXTS.buttons.downloading}`;
           
           for (const addon of ADDONS) {
