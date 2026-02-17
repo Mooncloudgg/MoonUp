@@ -1,40 +1,44 @@
+export const API_CONFIG = {
+  baseUrl: "https://moonup-auth.duckdns.org:5000"
+};
+
 export const TEXTS = {
-  // ... (Buttons und Status bleiben gleich)
   buttons: {
+    login: "Login mit Discord",
+    loggingIn: "Warte auf Login...",
     install: "Installieren",
     update: "Update",
+    downloading: "Lade...", // NEU
     current: "✔ Aktuell",
     deleteTitle: "Löschen",
     refresh: "Aktualisieren",
     pathBtn: "Pfad wählen",
     wait: "...",
     error: "Err",
-    check: "Prüfen",
-    checking: "...",
-    keyOk: "OK",
-    keyErr: "Fehler"
   },
   status: {
     ready: "Bereit.",
     searching: "Suche Updates...",
-    installing: "Installiere",
+    installing: "Lade herunter & entpacke: ", // Angepasst
     done: "Fertig!",
     deleted: "gelöscht.",
     checkError: "Fehler beim Prüfen",
-    authError: "Token ungültig / Zugriff verweigert"
+    authError: "Authentifizierung fehlgeschlagen",
+    denied: "⛔ Zugriff verweigert (Rolle fehlt)",
+    expired: "⏰ Login abgelaufen"
   },
   versions: {
     localLabel: "Lokal:",
-    remoteLabel: "GitHub:",
-    checking: "Prüfen...",
-    missing: "...",
+    remoteLabel: "Server:",
+    checking: "...",
+    missing: "-",
     folderMissing: "Nicht installiert",
-    tocMissing: "Beschädigt",
-    tokenError: "Token ungültig",
+    tocMissing: "Unbekannt",
+    tokenError: "Login erforderlich",
     optionalHeader: "Optionale Addons" 
   },
   alerts: {
-    noToken: "⚠️ Token erforderlich: Updates deaktiviert",
+    noToken: "⚠️ Bitte einloggen, um Addons zu laden.",
     pathMissing: "Bitte WoW-Pfad auswählen",
   },
   dialogs: {

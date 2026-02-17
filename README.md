@@ -29,7 +29,7 @@
 
 ### Features:
 * ✅ **Automatische Updates:** Erkennt sofort, wenn wir eine neue Version auf GitHub pushen.
-* ✅ **Sicherheit:** Zugriff nur mit gültigem Gilden-Token möglich.
+* ✅ **Sicherheit:** Zugriff nur mit gültigem Discord Login.
 * ✅ **Optionale Addons:** Wähle selbst, ob du zusätzliche Pakete wie QUI installieren möchtest.
 * ✅ **Cross-Platform:** Läuft nativ auf Windows und macOS (Apple Silicon & Intel).
 

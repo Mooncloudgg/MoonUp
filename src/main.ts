@@ -1,237 +1,315 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, ask } from "@tauri-apps/plugin-dialog";
-import { TEXTS, ADDONS } from "./config";
+import { open as shellOpen } from "@tauri-apps/plugin-shell";
+import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
+import { TEXTS, ADDONS, API_CONFIG } from "./config";
+import { v4 as uuidv4 } from "uuid";
 
 window.addEventListener("DOMContentLoaded", async () => {
-  const pathDisplay = document.querySelector("#path-display") as HTMLElement;
-  const tokenInput = document.querySelector("#token-input") as HTMLInputElement;
-  const checkTokenBtn = document.querySelector("#check-token-btn") as HTMLButtonElement;
-  const tokenAlert = document.querySelector("#token-alert") as HTMLElement;
-  const addonList = document.querySelector("#addon-list") as HTMLElement;
-  const statusArea = document.querySelector("#status-text") as HTMLElement;
-  const refreshBtn = document.querySelector("#refresh-btn") as HTMLButtonElement;
-  const updateAllBtn = document.querySelector("#update-all-btn") as HTMLButtonElement;
-  const deleteBtn = document.querySelector("#delete-btn") as HTMLButtonElement;
-  const pathBtn = document.querySelector("#change-path-btn") as HTMLButtonElement;
-
-  refreshBtn.textContent = "🔄"; 
-  pathBtn.textContent = TEXTS.buttons.pathBtn; 
-  checkTokenBtn.textContent = TEXTS.buttons.check;
-  tokenAlert.textContent = TEXTS.alerts.noToken;
-
-  let currentWowPath = localStorage.getItem("moonup_wow_path") || "";
-  let isTokenValid = false;
-
-  async function checkTokenOnline() {
-    const token = tokenInput.value.trim();
-    if(document.activeElement === checkTokenBtn) {
-        checkTokenBtn.disabled = true;
-        checkTokenBtn.textContent = TEXTS.buttons.checking;
-    }
-    if (!token) {
-        setTokenStatus(false, TEXTS.alerts.noToken);
-        resetCheckBtn();
-        return;
-    }
-    try {
-        const isValid = await invoke("validate_token", { token });
-        if (isValid) setTokenStatus(true);
-        else setTokenStatus(false, TEXTS.versions.tokenError);
-    } catch (e) {
-        setTokenStatus(false, "Verbindungsfehler");
-    }
-    resetCheckBtn();
-  }
-
-  function resetCheckBtn() {
-    checkTokenBtn.disabled = false;
-    if (isTokenValid) {
-        checkTokenBtn.textContent = TEXTS.buttons.keyOk; 
-        checkTokenBtn.classList.add("valid-status");
-    } else {
-        checkTokenBtn.textContent = TEXTS.buttons.check;
-        checkTokenBtn.classList.remove("valid-status");
-    }
-  }
-
-  function setTokenStatus(valid: boolean, msg: string = "") {
-    isTokenValid = valid;
-    if (valid) {
-        tokenInput.classList.remove("invalid");
-        tokenInput.classList.add("valid");
-        tokenAlert.style.display = "none";
-    } else {
-        tokenInput.classList.remove("valid");
-        tokenInput.classList.add("invalid");
-        tokenAlert.textContent = msg;
-        tokenAlert.style.display = "block";
-    }
-    updateMainButton();
-    updateUI();
-  }
-
-  function updateMainButton() {
-    refreshBtn.disabled = !currentWowPath || !isTokenValid;
-  }
-
-  async function updateUI() {
-    let updatesAvailableCount = 0;
-    
-    const mainAddons = ADDONS.filter(a => !(a as any).isOptional);
-    const optionalAddons = ADDONS.filter(a => (a as any).isOptional);
-
-    const renderAddon = (addon: any) => {
-      const rawLocal = localStorage.getItem(`version_${addon.folder}`) || TEXTS.versions.checking;
-      const rawRemote = localStorage.getItem(`latest_${addon.folder}`) || TEXTS.versions.missing;
-      const isInstalled = !["Ordner fehlt", "TOC fehlt", "Prüfen...", "Pfad ungültig", "Fehler", "Version unbekannt"].includes(rawLocal);
-      const localNum = parseInt(rawLocal.replace(/\D/g, "")) || 0;
-      const remoteNum = parseInt(rawRemote.replace(/\D/g, "")) || 0;
-      const canUpdate = isInstalled && isTokenValid && rawRemote !== "AUTH_ERROR" && (remoteNum > localNum);
+  try {
+      const pathDisplay = document.querySelector("#path-display") as HTMLElement;
+      const loginBtn = document.querySelector("#login-btn") as HTMLButtonElement;
+      const loginSection = document.querySelector("#login-section") as HTMLElement;
+      const userDisplay = document.querySelector("#user-display") as HTMLElement;
+      const usernameLabel = document.querySelector("#username-label") as HTMLElement;
+      const logoutBtn = document.querySelector("#logout-btn") as HTMLElement;
+      const loginStatus = document.querySelector("#login-status") as HTMLElement;
+      const addonList = document.querySelector("#addon-list") as HTMLElement;
+      const refreshBtn = document.querySelector("#refresh-btn") as HTMLButtonElement;
+      const updateAllBtn = document.querySelector("#update-all-btn") as HTMLButtonElement;
+      const deleteBtn = document.querySelector("#delete-btn") as HTMLButtonElement;
+      const pathBtn = document.querySelector("#change-path-btn") as HTMLButtonElement;
+      const statusArea = document.querySelector("#status-text") as HTMLElement;
       
-      if (canUpdate) updatesAvailableCount++;
+      // Modal Elemente
+      const openSettingsBtn = document.querySelector("#open-settings-btn") as HTMLButtonElement;
+      const closeSettingsBtn = document.querySelector("#close-settings-btn") as HTMLElement;
+      const settingsModal = document.querySelector("#settings-modal") as HTMLElement;
+      const autostartCb = document.querySelector("#autostart-cb") as HTMLInputElement;
 
-      let actionHtml = '';
-      if (!isInstalled) {
-        actionHtml = `<button class="btn-primary install-btn" data-repo="${addon.repo}" data-folder="${addon.folder}" ${!isTokenValid ? 'disabled' : ''}>${TEXTS.buttons.install}</button>`;
-      } else if (canUpdate) {
-        actionHtml = `<button class="btn-update install-btn" data-repo="${addon.repo}" data-folder="${addon.folder}" ${!isTokenValid ? 'disabled' : ''}>${TEXTS.buttons.update}</button>`;
-      } else {
-        actionHtml = !isTokenValid ? `<span style="font-size: 1.2em">🔒</span>` : `<span class="status-ok">${TEXTS.buttons.current}</span>`;
+      let currentWowPath = localStorage.getItem("moonup_wow_path") || "";
+      let authToken = localStorage.getItem("moonup_auth_token") || "";
+      let authUser = localStorage.getItem("moonup_auth_user") || "";
+      let loginInterval: number | null = null; 
+
+      // --- MODAL LOGIC START ---
+      if (openSettingsBtn && settingsModal && closeSettingsBtn) {
+          openSettingsBtn.addEventListener("click", () => {
+              settingsModal.style.display = "flex"; // Anzeigen
+          });
+          closeSettingsBtn.addEventListener("click", () => {
+              settingsModal.style.display = "none"; // Verstecken
+          });
+          // Schließen beim Klick auf Hintergrund
+          window.addEventListener("click", (e) => {
+              if (e.target === settingsModal) {
+                  settingsModal.style.display = "none";
+              }
+          });
+      }
+      // --- MODAL LOGIC END ---
+
+      // --- AUTOSTART LOGIC ---
+      if (autostartCb) {
+          try {
+            const active = await isEnabled();
+            autostartCb.checked = active;
+          } catch (e) { console.error("Autostart check failed:", e); }
+
+          autostartCb.addEventListener("change", async () => {
+              try {
+                  if (autostartCb.checked) await enable();
+                  else await disable();
+              } catch (e) {
+                  console.error("Autostart error:", e);
+                  autostartCb.checked = !autostartCb.checked; 
+                  alert("Fehler beim Autostart: " + e);
+              }
+          });
       }
 
-      const displayLocal = rawLocal === "Ordner fehlt" ? TEXTS.versions.folderMissing : (rawLocal === "TOC fehlt" ? TEXTS.versions.tocMissing : rawLocal);
-      const displayRemote = rawRemote === "AUTH_ERROR" ? `<span style="color:#ff4444">${TEXTS.versions.tokenError}</span>` : rawRemote;
+      function updateAuthUI() {
+        if (authToken) {
+          loginSection.style.display = "none";
+          userDisplay.style.display = "flex";
+          if(updateAllBtn) updateAllBtn.style.display = "block";
 
-      return `
-        <div class="addon-item">
-          <div><span class="addon-name">${addon.label}</span><div class="version-row">${TEXTS.versions.localLabel} ${displayLocal} | ${TEXTS.versions.remoteLabel} ${displayRemote}</div></div>
-          <div class="addon-actions">${actionHtml}${isInstalled ? `<button class="btn-delete delete-btn" data-folder="${addon.folder}" data-label="${addon.label}">🗑️</button>` : ''}</div>
-        </div>`;
-    };
+          usernameLabel.textContent = authUser || "Mitglied";
+          loginStatus.textContent = "";
+          updateUI(); 
+          if(currentWowPath) checkUpdates();
+        } else {
+          loginSection.style.display = "block";
+          userDisplay.style.display = "none";
+          if(updateAllBtn) updateAllBtn.style.display = "none";
 
-    let html = mainAddons.map(renderAddon).join('');
-    
-    if (optionalAddons.length > 0) {
-        html += `<div class="optional-separator"><span>${TEXTS.versions.optionalHeader}</span></div>`;
-        html += optionalAddons.map(renderAddon).join('');
-    }
+          ADDONS.forEach(a => localStorage.removeItem(`latest_${a.folder}`));
+          updateUI(); 
+        }
+      }
 
-    addonList.innerHTML = html;
+      function logout() {
+        if (loginInterval) clearInterval(loginInterval);
+        authToken = "";
+        authUser = "";
+        localStorage.removeItem("moonup_auth_token");
+        localStorage.removeItem("moonup_auth_user");
+        ADDONS.forEach(a => localStorage.removeItem(`latest_${a.folder}`));
+        updateAuthUI();
+      }
 
-    if (updateAllBtn) {
-        updateAllBtn.disabled = !(updatesAvailableCount > 0 && isTokenValid);
-        updateAllBtn.textContent = updatesAvailableCount > 0 ? `Alle aktualisieren (${updatesAvailableCount}) 🚀` : "Alles aktuell ✨";
-    }
-    
-    document.querySelectorAll(".install-btn").forEach(btn => btn.addEventListener("click", (e) => install(e.target as HTMLButtonElement)));
-    document.querySelectorAll(".delete-btn").forEach(btn => btn.addEventListener("click", (e) => uninstall(e.currentTarget as HTMLButtonElement)));
-    updateMainButton();
-  }
+      async function startDiscordLogin() {
+        loginBtn.disabled = true;
+        loginBtn.textContent = "Warte auf Browser...";
+        
+        loginStatus.innerHTML = `Bitte im Browser bestätigen...<br>
+          <span id="cancel-login" style="color: #ef4444; text-decoration: underline; cursor: pointer; font-size: 0.75rem; margin-top: 5px; display: inline-block;">
+            Vorgang abbrechen
+          </span>`;
 
-  async function updateAll() {
-      if (!isTokenValid || !currentWowPath) return;
-      updateAllBtn.disabled = true;
-      updateAllBtn.textContent = "Arbeite...";
-      for (const addon of ADDONS) {
-          const rawLocal = localStorage.getItem(`version_${addon.folder}`) || "";
-          const rawRemote = localStorage.getItem(`latest_${addon.folder}`) || "";
+        const deviceId = uuidv4();
+        const loginUrl = `${API_CONFIG.baseUrl}/auth/login?device_id=${deviceId}`;
+
+        await shellOpen(loginUrl);
+
+        setTimeout(() => {
+            const cancelBtn = document.querySelector("#cancel-login");
+            cancelBtn?.addEventListener("click", () => {
+                if (loginInterval) clearInterval(loginInterval);
+                loginBtn.disabled = false;
+                loginBtn.textContent = "Login mit Discord";
+                loginStatus.textContent = "Login abgebrochen.";
+            });
+        }, 100);
+
+        loginInterval = window.setInterval(async () => {
+            try {
+              const res = await fetch(`${API_CONFIG.baseUrl}/auth/check?device_id=${deviceId}`);
+              if (!res.ok) return;
+              const data = await res.json();
+              
+              if (data.status === "success") {
+                if (loginInterval) clearInterval(loginInterval);
+                authToken = data.token;
+                authUser = data.username;
+                localStorage.setItem("moonup_auth_token", authToken);
+                localStorage.setItem("moonup_auth_user", authUser);
+                updateAuthUI();
+                loginBtn.disabled = false;
+                loginBtn.textContent = "Login mit Discord";
+              } else if (data.status === "denied") {
+                if (loginInterval) clearInterval(loginInterval);
+                alert("Zugriff verweigert: Die Discord Rolle fehlt.");
+                loginBtn.disabled = false;
+                loginBtn.textContent = "Login mit Discord";
+                loginStatus.textContent = "";
+              }
+            } catch (e) { console.error("Polling...", e); }
+        }, 2000);
+      }
+
+      async function checkUpdates() {
+        if (!currentWowPath) return;
+        statusArea.textContent = TEXTS.status.searching;
+        
+        for (const addon of ADDONS) {
+          try {
+            const v = await invoke("get_installed_version", { path: currentWowPath, folder: addon.folder, search: addon.search });
+            localStorage.setItem(`version_${addon.folder}`, String(v));
+
+            if(authToken) {
+                const rv = await invoke("check_for_updates", { token: authToken, repo: addon.repo }) as string;
+                if (rv === "AUTH_ERROR" || rv.includes("403")) { logout(); return; }
+                localStorage.setItem(`latest_${addon.folder}`, rv);
+            }
+          } catch (e) { 
+              console.error(e);
+              if (String(e).includes("403")) { logout(); return; }
+          }
+        }
+        statusArea.textContent = TEXTS.status.ready;
+        updateUI();
+      }
+
+      async function install(btn: HTMLButtonElement) {
+        if(!authToken || !currentWowPath) return;
+        const { repo, folder } = btn.dataset;
+        
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<span class="loader"></span> ${TEXTS.buttons.downloading}`;
+        statusArea.textContent = TEXTS.status.installing + (btn.dataset.folder || "Addon");
+
+        try {
+          await invoke("install_addon", { token: authToken, repo, name: folder, path: currentWowPath });
+          statusArea.textContent = TEXTS.status.done;
+          await checkUpdates(); 
+        } catch (e: any) { 
+            if (String(e).includes("403")) logout();
+            else alert("Fehler: " + e);
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            statusArea.textContent = TEXTS.status.checkError;
+        }
+      }
+
+      async function updateUI() {
+        let updatesAvailableCount = 0;
+        const mainAddons = ADDONS.filter(a => !(a as any).isOptional);
+        const optionalAddons = ADDONS.filter(a => (a as any).isOptional);
+
+        const renderAddon = (addon: any) => {
+          let rawLocal = localStorage.getItem(`version_${addon.folder}`);
+          
+          if (!rawLocal || rawLocal === "Ordner fehlt") {
+              rawLocal = TEXTS.versions.folderMissing;
+          }
+
+          const rawRemote = localStorage.getItem(`latest_${addon.folder}`) || TEXTS.versions.missing;
+          const isInstalled = ![TEXTS.versions.folderMissing, "Ordner fehlt", "TOC fehlt"].includes(rawLocal);
+          
           const localNum = parseInt(rawLocal.replace(/\D/g, "")) || 0;
           const remoteNum = parseInt(rawRemote.replace(/\D/g, "")) || 0;
-          if (!["Ordner fehlt", "TOC fehlt"].includes(rawLocal) && remoteNum > localNum) {
-              statusArea.textContent = `Aktualisiere ${addon.label}...`;
-              try { await invoke("install_addon", { token: tokenInput.value, repo: addon.repo, name: addon.folder, path: currentWowPath }); }
-              catch (e) { statusArea.textContent = `Fehler: ${e}`; }
+          const canUpdate = isInstalled && authToken && rawRemote !== TEXTS.versions.missing && (remoteNum > localNum);
+          
+          if (canUpdate) updatesAvailableCount++;
+
+          let actionHtml = '';
+          if (!isInstalled) {
+            if (authToken && rawRemote !== TEXTS.versions.missing) {
+                actionHtml = `<button class="btn-primary install-btn" data-repo="${addon.repo}" data-folder="${addon.folder}">${TEXTS.buttons.install}</button>`;
+            } else {
+                actionHtml = `🔒`;
+            }
+          } else if (canUpdate) {
+            actionHtml = `<button class="btn-update install-btn" data-repo="${addon.repo}" data-folder="${addon.folder}">${TEXTS.buttons.update}</button>`;
+          } else {
+            actionHtml = !authToken ? `🔒` : `<span style="color:var(--success)">${TEXTS.buttons.current}</span>`;
           }
+
+          return `
+            <div class="addon-item">
+              <div>
+                  <span class="addon-name">${addon.label}</span>
+                  <div class="version-row">${TEXTS.versions.localLabel} ${rawLocal} | ${TEXTS.versions.remoteLabel} ${rawRemote}</div>
+              </div>
+              <div class="addon-actions">
+                  ${actionHtml}
+                  ${isInstalled ? `<button class="btn-delete delete-btn" data-folder="${addon.folder}" data-label="${addon.label}">🗑️</button>` : ''}
+              </div>
+            </div>`;
+        };
+
+        addonList.innerHTML = mainAddons.map(renderAddon).join('') + 
+          (optionalAddons.length ? `<div class="optional-separator"><span>${TEXTS.versions.optionalHeader}</span></div>` + optionalAddons.map(renderAddon).join('') : '');
+
+        if (updateAllBtn) {
+            updateAllBtn.disabled = !(updatesAvailableCount > 0 && authToken);
+            updateAllBtn.textContent = updatesAvailableCount > 0 ? `Alles aktualisieren (${updatesAvailableCount}) 🚀` : "Alles aktuell ✨";
+        }
+        
+        document.querySelectorAll(".install-btn").forEach(btn => btn.addEventListener("click", (e) => install(e.target as HTMLButtonElement)));
+        document.querySelectorAll(".delete-btn").forEach(btn => btn.addEventListener("click", (e) => uninstall(e.currentTarget as HTMLButtonElement)));
       }
-      statusArea.textContent = "Alle Updates fertig!";
-      await checkUpdates();
-  }
 
-  async function checkUpdates() {
-    if (!currentWowPath || !isTokenValid) return;
-    statusArea.textContent = TEXTS.status.searching;
-    updateUI();
-    for (const addon of ADDONS) {
-      try {
-        const v = await invoke("get_installed_version", { path: currentWowPath, folder: addon.folder, search: addon.search });
-        localStorage.setItem(`version_${addon.folder}`, String(v));
-        const rv = await invoke("check_for_updates", { token: tokenInput.value, repo: addon.repo });
-        localStorage.setItem(`latest_${addon.folder}`, String(rv));
-      } catch (e) { localStorage.setItem(`version_${addon.folder}`, "Fehler"); }
-    }
-    statusArea.textContent = TEXTS.status.ready;
-    updateUI();
-  }
-
-  async function install(btn: HTMLButtonElement) {
-    if(!isTokenValid) return;
-    const { repo, folder } = btn.dataset;
-    btn.disabled = true; btn.textContent = TEXTS.buttons.wait;
-    try {
-      await invoke("install_addon", { token: tokenInput.value, repo, name: folder, path: currentWowPath });
-      await checkUpdates();
-    } catch (e) { 
-        statusArea.textContent = `Fehler: ${e}`; 
-        btn.disabled = false;
-        btn.textContent = "Fehler";
-    }
-  }
-
-  async function uninstall(btn: HTMLButtonElement) {
-    const folderName = btn.dataset.folder;
-    const label = btn.dataset.label;
-    const yes = await ask(TEXTS.dialogs.deleteConfirm(label || ""), { title: TEXTS.dialogs.deleteTitle, kind: 'warning' });
-    if (!yes) return;
-    try {
-      await invoke("uninstall_addon", { path: currentWowPath, name: folderName });
-      localStorage.setItem(`version_${folderName}`, "Ordner fehlt");
-      updateUI();
-    } catch (e) { statusArea.textContent = `Fehler: ${e}`; }
-  }
-
-  async function selectPath() {
-    const selected = await open({ directory: true });
-    if (selected && typeof selected === 'string') {
-      currentWowPath = selected;
-      localStorage.setItem("moonup_wow_path", selected);
-      pathDisplay.textContent = selected;
-      updateMainButton();
-      if(isTokenValid) checkUpdates();
-    }
-  }
-
-  tokenInput.addEventListener("input", () => {
-    localStorage.setItem("moonup_token", tokenInput.value);
-    isTokenValid = false;
-    updateUI(); 
-  });
-
-  checkTokenBtn.addEventListener("click", checkTokenOnline);
-  refreshBtn.addEventListener("click", checkUpdates);
-  updateAllBtn.addEventListener("click", updateAll);
-  pathBtn.addEventListener("click", selectPath);
-  pathDisplay.addEventListener("click", selectPath);
-
-  deleteBtn.addEventListener("click", async () => {
-      const confirmAll = await ask("Möchtest du wirklich ALLE Addons löschen?", { title: "Alle Addons löschen", kind: 'warning' });
-      if (confirmAll) {
-          statusArea.textContent = "Lösche alle Addons...";
-          for (const addon of ADDONS) {
-              await invoke("uninstall_addon", { path: currentWowPath, name: addon.folder });
-              localStorage.setItem(`version_${addon.folder}`, "Ordner fehlt");
-          }
-          statusArea.textContent = "Alle Addons gelöscht.";
+      async function uninstall(btn: HTMLButtonElement) {
+        const folderName = btn.dataset.folder;
+        if (await ask(TEXTS.dialogs.deleteConfirm(btn.dataset.label || ""), { kind: 'warning' })) {
+          await invoke("uninstall_addon", { path: currentWowPath, name: folderName });
+          localStorage.setItem(`version_${folderName}`, TEXTS.versions.folderMissing);
           updateUI();
+        }
       }
-  });
 
-  tokenInput.value = localStorage.getItem("moonup_token") || "";
-  if (currentWowPath) pathDisplay.textContent = currentWowPath;
-  updateUI();
+      async function selectPath() {
+        const selected = await open({ directory: true });
+        if (selected && typeof selected === 'string') {
+          currentWowPath = selected;
+          localStorage.setItem("moonup_wow_path", selected);
+          pathDisplay.textContent = selected;
+          if(authToken) checkUpdates(); else updateUI();
+        }
+      }
 
-  if(tokenInput.value) {
-      await checkTokenOnline();
-      if(isTokenValid && currentWowPath) checkUpdates();
-  }
-  setInterval(() => { if (tokenInput.value) checkTokenOnline(); }, 30 * 60 * 1000);
+      loginBtn.addEventListener("click", startDiscordLogin);
+      logoutBtn.addEventListener("click", logout);
+      refreshBtn.addEventListener("click", checkUpdates);
+      
+      updateAllBtn.addEventListener("click", async () => {
+          updateAllBtn.disabled = true;
+          const originalText = updateAllBtn.textContent;
+          updateAllBtn.innerHTML = `<span class="loader"></span> ${TEXTS.buttons.downloading}`;
+          
+          for (const addon of ADDONS) {
+              const rawLocal = localStorage.getItem(`version_${addon.folder}`) || "";
+              const rawRemote = localStorage.getItem(`latest_${addon.folder}`) || "";
+              const localNum = parseInt(rawLocal.replace(/\D/g, "")) || 0;
+              const remoteNum = parseInt(rawRemote.replace(/\D/g, "")) || 0;
+              
+              if (rawLocal === TEXTS.versions.folderMissing || (remoteNum > localNum)) {
+                  statusArea.textContent = TEXTS.status.installing + addon.label;
+                  try { await invoke("install_addon", { token: authToken, repo: addon.repo, name: addon.folder, path: currentWowPath }); }
+                  catch (e) { console.error(e); }
+              }
+          }
+          await checkUpdates();
+      });
+      
+      pathBtn.addEventListener("click", selectPath);
+      pathDisplay.addEventListener("click", selectPath);
+      
+      deleteBtn.addEventListener("click", async () => {
+          if (await ask("Alle Mooncloud Addons löschen?", { kind: 'warning' })) {
+              for (const addon of ADDONS) {
+                  await invoke("uninstall_addon", { path: currentWowPath, name: addon.folder });
+                  localStorage.setItem(`version_${addon.folder}`, TEXTS.versions.folderMissing);
+              }
+              updateUI();
+          }
+      });
+
+      if (currentWowPath) pathDisplay.textContent = currentWowPath;
+      updateAuthUI();
+
+  } catch(err) { console.error(err); }
 });

@@ -6,252 +6,223 @@
     <title>Moonup</title>
     <style>
       :root {
-        --bg: #09090b;
-        --card: #121216;
+        --bg: #09090b; 
+        --card: #121216; 
         --accent: #5b21b6; 
         --text: #ffffff;
-        --text-dim: #a1a1aa;
-        --border: #27272a;
-        --success: #10b981;
-        --danger: #ef4444;
+        --text-dim: #a1a1aa; 
+        --border: #27272a; 
+        --success: #10b981; 
+        --danger: #ef4444; 
+        --discord: #5865F2;
       }
-
-      body {
-        margin: 0;
-        background-color: var(--bg);
-        color: var(--text);
-        font-family: 'Inter', -apple-system, sans-serif;
-        display: flex;
-        justify-content: center;
-        /* GEÄNDERT: Wieder mehr Luft oben/unten (20px) */
-        padding: 20px 10px; 
+      
+      body { 
+        margin: 0; 
+        background-color: var(--bg); 
+        color: var(--text); 
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; /* Vertikal zentriert */
+        padding: 20px 10px;
+        min-height: 100vh;
+        box-sizing: border-box;
       }
-
-      .container { width: 100%; max-width: 400px; }
-
+      
+      .container { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 12px; position: relative; }
+      
+      /* LOGO KLEINER GEMACHT */
       .main-banner { 
-        width: auto; 
-        max-width: 260px; 
-        height: auto;
+        width: 100%; 
+        max-width: 140px; /* Reduziert von 220px */
+        height: auto; 
         display: block; 
-        /* GEÄNDERT: Mehr Abstand zur ersten Karte (20px) */
-        margin: 0 auto 20px; 
-        filter: drop-shadow(0 0 10px rgba(91, 33, 182, 0.4)); 
+        margin: 0 auto 5px; 
+        filter: drop-shadow(0 0 15px rgba(91, 33, 182, 0.3)); 
+      }
+      
+      /* CARD STYLES */
+      .card { 
+        background: var(--card); 
+        border: 1px solid var(--border); 
+        border-radius: 12px; 
+        padding: 16px; 
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); 
       }
 
-      .card {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 15px; 
-        margin-bottom: 15px; /* Wieder Standard-Abstand */
-      }
-
-      .addon-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-        padding-bottom: 5px;
-        border-bottom: 1px solid var(--border);
-      }
-
-      .addon-header h2, .card h2 { 
-        font-size: 0.8rem; 
+      h2 { 
+        margin: 0 0 12px 0; 
+        font-size: 0.9rem; 
+        font-weight: 700; 
+        color: var(--text); 
         text-transform: uppercase; 
         letter-spacing: 0.05em; 
-        color: var(--text-dim); 
-        margin: 0;
-      }
-
-      .card h2 { margin-bottom: 10px; }
-
-      .token-row {
+        padding-bottom: 0;
         display: flex;
+        align-items: center;
         gap: 8px;
-        align-items: center;
       }
-
-      input {
-        flex-grow: 1;
-        width: auto;
-        padding: 10px; 
-        background: #000;
-        border: 1px solid var(--border);
-        color: white;
-        border-radius: 6px;
-        box-sizing: border-box;
-        outline: none;
-        transition: border-color 0.3s;
-        font-size: 0.9rem;
-      }
-
-      input:focus { border-color: var(--accent); }
-      input.valid { border-color: var(--success) !important; }
-      input.invalid { border-color: var(--danger) !important; }
-
-      .token-alert { color: var(--danger); font-size: 0.75em; margin-top: 5px; display: none; font-weight: bold; }
-
-      .path-box {
-        background: #000;
-        padding: 10px;
-        border-radius: 6px;
-        font-size: 0.75rem;
-        color: #9333ea; 
-        border: 1px solid var(--border);
-        font-family: monospace;
-        word-break: break-all;
-        margin-bottom: 8px;
-        cursor: pointer;
-        transition: background 0.2s;
-      }
-
-      .path-box:hover {
-        background: #111;
-        border-color: var(--accent);
-      }
-
-      .addon-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 10px 0; 
-        border-bottom: 1px solid var(--border);
-      }
-
-      .addon-item:last-child { border-bottom: none; }
-
-      .addon-actions {
-        display: flex;
-        align-items: center;
-        gap: 15px; 
-      }
-
-      button {
-        background: var(--accent);
-        color: white;
-        border: none;
-        padding: 8px 16px; 
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: 600;
-        transition: all 0.2s;
-        font-size: 0.9rem;
-      }
-
-      button:hover { background: #4c1d95; transform: translateY(-1px); }
-      button:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); transform: none; }
-
-      #change-path-btn { background: transparent; border: 1px solid var(--border); color: var(--text-dim); font-size: 0.7rem; padding: 4px 10px; }
-      #change-path-btn:hover { border-color: var(--accent); color: white; }
-
-      #check-token-btn { background: #333; padding: 10px 12px; white-space: nowrap; }
       
-      #check-token-btn.valid-status {
-        background: transparent !important;
-        border: 1px solid var(--success);
-        color: var(--success);
-        cursor: default;
-        pointer-events: none; 
+      .login-btn { 
+        width: 100%; padding: 12px; background-color: var(--accent); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; font-size: 0.95rem; box-shadow: 0 4px 10px rgba(91, 33, 182, 0.2);
+      }
+      .login-btn:hover { background-color: #4c1d95; transform: translateY(-1px); }
+      .login-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
+
+      /* LOGIN STATUS - WICHTIG FÜR ZENTRIERUNG */
+      #login-status {
+        margin-top: 12px;
+        font-size: 0.85rem;
+        color: var(--text-dim);
+        text-align: center;
+      }
+      /* Wenn leer, komplett ausblenden -> Button sitzt mittig */
+      #login-status:empty {
+        display: none;
+        margin-top: 0;
       }
 
-      .controls-row { display: flex; gap: 10px; margin-bottom: 8px; }
+      #user-display {
+        background: rgba(91, 33, 182, 0.05); border: 1px solid var(--accent); justify-content: space-between; align-items: center; padding: 10px 16px; border-radius: 10px; margin-bottom: 0;
+      }
+      
+      .user-left { display: flex; align-items: center; gap: 12px; }
+      .user-icon { font-size: 1.2rem; }
+      #username-label { font-weight: 700; font-size: 1rem; color: #fff; }
+      
+      .logout-btn { 
+        background: transparent; border: 1px solid var(--border); color: var(--text-dim); font-size: 0.75rem; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;
+      }
+      .logout-btn:hover { color: var(--danger); border-color: var(--danger); background: rgba(239, 68, 68, 0.05); }
 
-      #update-all-btn { width: 100%; padding: 12px; font-size: 1rem; }
+      /* WOW INSTALLATION & ADDONS */
+      .section-header {
+        display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+      }
+      .section-title {
+        font-size: 0.75rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em;
+      }
+      .settings-icon {
+        background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 1rem; padding: 0; transition: color 0.2s;
+      }
+      .settings-icon:hover { color: #fff; }
 
+      .path-display-box { 
+        background: #000000; padding: 10px; border-radius: 6px; font-size: 0.8rem; color: var(--text-dim); border: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: monospace; margin-bottom: 8px;
+      }
+      .btn-secondary {
+        width: 100%; padding: 8px; background: transparent; border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: 0.2s; margin-bottom: 20px;
+      }
+      .btn-secondary:hover { border-color: #fff; color: #fff; }
+
+      /* ADDONS LIST */
+      .addon-header {
+        display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 8px;
+      }
+      .addon-title {
+        font-size: 0.9rem; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 0.05em;
+      }
       #refresh-btn {
-        background: transparent;
-        color: var(--text-dim);
-        padding: 4px;
-        font-size: 1.1rem;
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: color 0.3s, background 0.3s;
+        background: transparent; border: none; font-size: 1.1rem; cursor: pointer; color: var(--text-dim); padding: 0; transition: color 0.2s;
       }
+      #refresh-btn:hover { color: #fff; }
+
+      .addon-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+      .addon-item:last-child { border-bottom: none; }
+      .addon-name { font-weight: 600; font-size: 0.95rem; display: block; margin-bottom: 4px; color: var(--text); }
+      .version-row { font-size: 0.75rem; color: var(--text-dim); }
+      .addon-actions { display: flex; align-items: center; gap: 8px; }
       
-      #refresh-btn:hover {
-        color: var(--text);
-        background: rgba(255, 255, 255, 0.1);
+      .btn-primary { background: var(--accent); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: 0.2s; }
+      .btn-primary:hover { background: #4c1d95; }
+      
+      .btn-update { background: var(--success); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
+      .btn-update:hover { background: #059669; }
+      
+      .btn-delete { background: transparent; border: 1px solid var(--border); color: var(--text-dim); padding: 6px; border-radius: 6px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
+      .btn-delete:hover { color: var(--danger); border-color: var(--danger); background: rgba(239, 68, 68, 0.1); }
+      .lock-icon { font-size: 0.9rem; color: #eab308; } 
+
+      #update-all-btn {
+        width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: 0.2s; margin-top: 10px; box-shadow: 0 4px 10px rgba(91, 33, 182, 0.2); 
       }
+      #update-all-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 15px rgba(91, 33, 182, 0.3); }
+      #update-all-btn:disabled { background: var(--border); color: var(--text-dim); box-shadow: none; cursor: not-allowed; opacity: 0.8; transform: none; }
 
-      #refresh-btn:active {
-        transform: rotate(180deg);
-        transition: transform 0.4s ease;
-      }
+      #delete-btn { width: 100%; padding: 10px; background: transparent; border: 1px solid var(--border); color: var(--text-dim); border-radius: 8px; cursor: pointer; font-size: 0.8rem; margin-top: 10px; }
+      #delete-btn:hover { color: var(--danger); border-color: var(--danger); }
 
-      #delete-btn {
-        width: 100%; 
-        background: #27272a; 
-        border: 1px solid #3f3f46;
-        padding: 8px;
-        font-size: 0.8rem;
-        margin-top: 5px;
-      }
+      .optional-separator { margin: 15px 0 5px; text-align: center; border-bottom: 1px solid var(--border); line-height: 0.1em; color: var(--text-dim); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; }
+      .optional-separator span { background: var(--card); padding: 0 10px; }
+      
+      #status-text { font-size: 0.8rem; color: var(--text-dim); text-align: center; margin-top: 8px; min-height: 1.2em; }
 
-      .optional-separator {
-        display: flex;
-        align-items: center;
-        margin: 20px 0 10px 0;
-        color: var(--text-dim);
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-      }
-
-      .optional-separator::before, .optional-separator::after {
-        content: "";
-        flex: 1;
-        height: 1px;
-        background: var(--border);
-      }
-
-      .optional-separator span { padding: 0 10px; }
-
-      .status-ok { color: var(--success); font-size: 0.9em; }
-      .status { text-align: center; font-size: 0.8rem; color: var(--text-dim); margin-top: 10px; min-height: 18px; }
-      .version-row { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; }
-      .addon-name { font-weight: 600; font-size: 0.95rem; }
+      /* MODAL */
+      .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
+      .modal-content { background-color: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; width: 90%; max-width: 300px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+      .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px; font-weight: 700; }
+      .modal-close { cursor: pointer; font-size: 1.5rem; line-height: 1; color: var(--text-dim); }
+      .modal-close:hover { color: var(--text); }
+      .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+      
+      .loader { border: 2px solid rgba(255, 255, 255, 0.3); border-top: 2px solid #ffffff; border-radius: 50%; width: 14px; height: 14px; animation: spin 1s linear infinite; margin-right: 8px; }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
   </head>
   <body>
     <div class="container">
+      <img src="APP_BANNER.png" class="main-banner" alt="Moonup Banner" onerror="this.style.display='none'">
       
-      <img src="APP_BANNER.png" class="main-banner" alt="Mooncloud Banner">
+      <div id="login-section" class="card" style="text-align: center;">
+        <button id="login-btn" class="login-btn">Login mit Discord</button>
+        <div id="login-status"></div>
+      </div>
 
-      <div class="card">
-        <h2>Konfiguration</h2>
-        <div style="margin-bottom: 15px;">
-           <div class="token-row">
-             <input type="password" id="token-input" placeholder="GitHub Token..." />
-             <button id="check-token-btn">Prüfen</button>
-           </div>
-           <div id="token-alert" class="token-alert">⚠️ Token ungültig</div>
-        </div>
-        <div>
-           <div id="path-display" class="path-box" title="Klicken zum Ändern">Pfad wählen...</div>
-           <button id="change-path-btn">Pfad ändern</button>
-        </div>
+      <div id="user-display" style="display: none;">
+         <div class="user-left">
+            <span class="user-icon">👤</span>
+            <span id="username-label">User</span>
+         </div>
+         <button id="logout-btn" class="logout-btn">Abmelden</button>
       </div>
 
       <div class="card">
+        <div class="section-header">
+            <span class="section-title">WoW Installation</span>
+            <button id="open-settings-btn" class="settings-icon" title="Einstellungen">⚙️</button>
+        </div>
+        <div id="path-display" class="path-display-box">Pfad wählen...</div>
+        <button id="change-path-btn" class="btn-secondary">Ordner ändern</button>
+
         <div class="addon-header">
-            <h2>Addons</h2>
-            <button id="refresh-btn" title="Liste neu laden">🔄</button>
+            <span class="addon-title">Addons</span>
+            <button id="refresh-btn" title="Neu laden">🔄</button>
         </div>
+        
         <div id="addon-list"></div>
+        
+        <div class="optional-separator"><span>Status</span></div>
+        <div id="status-text">Bereit.</div>
       </div>
 
-      <div class="controls-row">
-        <button id="update-all-btn" disabled>Alle aktualisieren 🚀</button>
-      </div>
-      
-      <button id="delete-btn">Alle Addons löschen</button>
-      <div class="status" id="status-text">Bereit.</div>
+      <button id="update-all-btn" style="display: none;">Alle aktualisieren 🚀</button>
+      <button id="delete-btn">Alles löschen</button>
     </div>
+
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>Einstellungen</span>
+                <span id="close-settings-btn" class="modal-close">&times;</span>
+            </div>
+            <div class="setting-row">
+                <span>Mit Windows starten</span>
+                <input type="checkbox" id="autostart-cb">
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
