@@ -44,7 +44,7 @@ Da Moonup ein privates Community-Projekt ist und keine kostspielige digitale Sig
 * **Open Source:** Der gesamte Quellcode ist hier auf GitHub einsehbar. Nichts ist versteckt.
 * **GitHub Actions:** Die `.exe` und `.dmg` Dateien werden automatisch auf GitHub-Servern gebaut, nicht auf einem privaten PC. Das garantiert, dass der Code im Repo mit dem Programm übereinstimmt.
 * **Viren-Scan:** Die Datei ist sauber. Ein exemplarischer Scan kann hier eingesehen werden:
-  👉 [**Beispiel Scan-Ergebnis (Jotti)**](https://virusscan.jotti.org/de-DE/filescanjob/r07ctk16vy)
+  👉 [**Beispiel Scan-Ergebnis (Jotti)**](https://virusscan.jotti.org/de-DE/filescanjob/0sto1u6mgz)
 
 ---
 
@@ -74,10 +74,9 @@ Da Moonup ein privates Community-Projekt ist und keine kostspielige digitale Sig
 ## 🛠️ Einrichtung
 
 1.  Starte Moonup.
-2.  Gib deinen **GitHub Token** ein (diesen findest du im angepinnten Discord-Channel).
-3.  Klicke auf "Prüfen".
-4.  Wähle deinen **WoW `_Addons_` Ordner** aus (z.B. `C:\World of Warcraft\_retail_\Interface\AddOns`).
-5.  Klicke bei den gewünschten Addons auf **Installieren** oder nutze **Alle aktualisieren**.
+2.  Logge dich mit deinem Discord Account ein.
+3.  Wähle deinen **WoW `_Addons_` Ordner** aus (z.B. `C:\World of Warcraft\_retail_\Interface\AddOns`).
+4.  Klicke bei den gewünschten Addons auf **Installieren** oder nutze **Alle aktualisieren**.
 
 ---
 
