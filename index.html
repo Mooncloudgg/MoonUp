@@ -23,144 +23,108 @@
         color: var(--text); 
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
         display: flex; 
-        justify-content: center; 
-        align-items: center; /* Vertikal zentriert */
-        padding: 20px 10px;
+        justify-content: center; /* Horizontal mittig */
+        align-items: flex-start; /* Vertikal OBEN ausrichten statt mittig */
+        padding: 25px 10px 20px; /* 25px fester Abstand nach oben */
         min-height: 100vh;
         box-sizing: border-box;
       }
       
-      .container { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 12px; position: relative; }
+      .container { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 10px; position: relative; }
       
-      /* LOGO KLEINER GEMACHT */
       .main-banner { 
         width: 100%; 
-        max-width: 140px; /* Reduziert von 220px */
+        max-width: 180px; 
         height: auto; 
         display: block; 
-        margin: 0 auto 5px; 
+        margin: 0 auto 15px; /* 15px nach unten (+ 10px gap = 25px Abstand zur Box) */
         filter: drop-shadow(0 0 15px rgba(91, 33, 182, 0.3)); 
       }
       
-      /* CARD STYLES */
       .card { 
         background: var(--card); 
         border: 1px solid var(--border); 
         border-radius: 12px; 
-        padding: 16px; 
+        padding: 15px; 
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); 
       }
 
-      h2 { 
-        margin: 0 0 12px 0; 
-        font-size: 0.9rem; 
-        font-weight: 700; 
-        color: var(--text); 
-        text-transform: uppercase; 
-        letter-spacing: 0.05em; 
-        padding-bottom: 0;
+      #login-section { 
         display: flex;
+        flex-direction: column;
+        justify-content: center;
         align-items: center;
-        gap: 8px;
+        min-height: 50px; 
       }
       
       .login-btn { 
-        width: 100%; padding: 12px; background-color: var(--accent); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; font-size: 0.95rem; box-shadow: 0 4px 10px rgba(91, 33, 182, 0.2);
+        width: 100%; padding: 12px; margin: 0; background-color: var(--accent); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; font-size: 0.95rem; box-shadow: 0 4px 10px rgba(91, 33, 182, 0.2);
       }
       .login-btn:hover { background-color: #4c1d95; transform: translateY(-1px); }
       .login-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
 
-      /* LOGIN STATUS - WICHTIG FÜR ZENTRIERUNG */
       #login-status {
-        margin-top: 12px;
+        margin-top: 10px;
         font-size: 0.85rem;
         color: var(--text-dim);
         text-align: center;
       }
-      /* Wenn leer, komplett ausblenden -> Button sitzt mittig */
-      #login-status:empty {
-        display: none;
-        margin-top: 0;
-      }
+      #login-status:empty { display: none; margin-top: 0; }
 
       #user-display {
-        background: rgba(91, 33, 182, 0.05); border: 1px solid var(--accent); justify-content: space-between; align-items: center; padding: 10px 16px; border-radius: 10px; margin-bottom: 0;
+        background: rgba(91, 33, 182, 0.05); border: 1px solid var(--accent); justify-content: space-between; align-items: center; padding: 10px 15px; border-radius: 10px; margin-bottom: 0;
       }
-      
       .user-left { display: flex; align-items: center; gap: 12px; }
       .user-icon { font-size: 1.2rem; }
       #username-label { font-weight: 700; font-size: 1rem; color: #fff; }
       
-      .logout-btn { 
-        background: transparent; border: 1px solid var(--border); color: var(--text-dim); font-size: 0.75rem; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;
-      }
+      .logout-btn { background: transparent; border: 1px solid var(--border); color: var(--text-dim); font-size: 0.75rem; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; }
       .logout-btn:hover { color: var(--danger); border-color: var(--danger); background: rgba(239, 68, 68, 0.05); }
 
-      /* WOW INSTALLATION & ADDONS */
-      .section-header {
-        display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
-      }
-      .section-title {
-        font-size: 0.75rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em;
-      }
-      .settings-icon {
-        background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 1rem; padding: 0; transition: color 0.2s;
-      }
+      .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+      .section-title { font-size: 0.75rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+      .settings-icon { background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 1rem; padding: 0; transition: color 0.2s; }
       .settings-icon:hover { color: #fff; }
 
-      .path-display-box { 
-        background: #000000; padding: 10px; border-radius: 6px; font-size: 0.8rem; color: var(--text-dim); border: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: monospace; margin-bottom: 8px;
-      }
-      .btn-secondary {
-        width: 100%; padding: 8px; background: transparent; border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: 0.2s; margin-bottom: 20px;
-      }
+      .path-display-box { background: #000000; padding: 8px 10px; border-radius: 6px; font-size: 0.8rem; color: var(--text-dim); border: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: monospace; margin-bottom: 8px; }
+      
+      .btn-secondary { width: 100%; padding: 8px; background: transparent; border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: 0.2s; margin-bottom: 15px; }
       .btn-secondary:hover { border-color: #fff; color: #fff; }
 
-      /* ADDONS LIST */
-      .addon-header {
-        display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 8px;
-      }
-      .addon-title {
-        font-size: 0.9rem; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 0.05em;
-      }
-      #refresh-btn {
-        background: transparent; border: none; font-size: 1.1rem; cursor: pointer; color: var(--text-dim); padding: 0; transition: color 0.2s;
-      }
+      .addon-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+      .addon-title { font-size: 0.9rem; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 0.05em; }
+      #refresh-btn { background: transparent; border: none; font-size: 1.1rem; cursor: pointer; color: var(--text-dim); padding: 0; transition: color 0.2s; }
       #refresh-btn:hover { color: #fff; }
 
-      .addon-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+      .addon-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
       .addon-item:last-child { border-bottom: none; }
-      .addon-name { font-weight: 600; font-size: 0.95rem; display: block; margin-bottom: 4px; color: var(--text); }
+      .addon-name { font-weight: 600; font-size: 0.95rem; display: block; margin-bottom: 2px; color: var(--text); }
       .version-row { font-size: 0.75rem; color: var(--text-dim); }
       .addon-actions { display: flex; align-items: center; gap: 8px; }
       
       .btn-primary { background: var(--accent); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: 0.2s; }
       .btn-primary:hover { background: #4c1d95; }
-      
       .btn-update { background: var(--success); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
       .btn-update:hover { background: #059669; }
-      
       .btn-delete { background: transparent; border: 1px solid var(--border); color: var(--text-dim); padding: 6px; border-radius: 6px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
       .btn-delete:hover { color: var(--danger); border-color: var(--danger); background: rgba(239, 68, 68, 0.1); }
       .lock-icon { font-size: 0.9rem; color: #eab308; } 
 
-      #update-all-btn {
-        width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: 0.2s; margin-top: 10px; box-shadow: 0 4px 10px rgba(91, 33, 182, 0.2); 
-      }
+      #update-all-btn { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: 0.2s; margin-top: 0; box-shadow: 0 4px 10px rgba(91, 33, 182, 0.2); }
       #update-all-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 15px rgba(91, 33, 182, 0.3); }
       #update-all-btn:disabled { background: var(--border); color: var(--text-dim); box-shadow: none; cursor: not-allowed; opacity: 0.8; transform: none; }
 
-      #delete-btn { width: 100%; padding: 10px; background: transparent; border: 1px solid var(--border); color: var(--text-dim); border-radius: 8px; cursor: pointer; font-size: 0.8rem; margin-top: 10px; }
+      #delete-btn { width: 100%; padding: 10px; background: transparent; border: 1px solid var(--border); color: var(--text-dim); border-radius: 8px; cursor: pointer; font-size: 0.8rem; margin-top: 0; }
       #delete-btn:hover { color: var(--danger); border-color: var(--danger); }
 
-      .optional-separator { margin: 15px 0 5px; text-align: center; border-bottom: 1px solid var(--border); line-height: 0.1em; color: var(--text-dim); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; }
+      .optional-separator { margin: 12px 0 4px; text-align: center; border-bottom: 1px solid var(--border); line-height: 0.1em; color: var(--text-dim); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; }
       .optional-separator span { background: var(--card); padding: 0 10px; }
       
       #status-text { font-size: 0.8rem; color: var(--text-dim); text-align: center; margin-top: 8px; min-height: 1.2em; }
 
       /* MODAL */
       .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
-      .modal-content { background-color: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; width: 90%; max-width: 300px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+      .modal-content { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; width: 90%; max-width: 300px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
       .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px; font-weight: 700; }
       .modal-close { cursor: pointer; font-size: 1.5rem; line-height: 1; color: var(--text-dim); }
       .modal-close:hover { color: var(--text); }
@@ -174,7 +138,7 @@
     <div class="container">
       <img src="APP_BANNER.png" class="main-banner" alt="Moonup Banner" onerror="this.style.display='none'">
       
-      <div id="login-section" class="card" style="text-align: center;">
+      <div id="login-section" class="card">
         <button id="login-btn" class="login-btn">Login mit Discord</button>
         <div id="login-status"></div>
       </div>

@@ -5,6 +5,32 @@ import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
 import { TEXTS, ADDONS, API_CONFIG } from "./config";
 import { v4 as uuidv4 } from "uuid";
 
+// Hilfsfunktion: Vergleicht Versionen vernünftig statt nur per parseInt
+function isNewerVersion(local: string, remote: string): boolean {
+    if (!remote || remote === TEXTS.versions.missing) return false;
+    if (!local || local === TEXTS.versions.folderMissing || local.includes("fehlt")) return true;
+    
+    // Bereinige z.B. "v1.0" zu "1.0"
+    const clean = (v: string) => v.replace(/^[vV]/, '').trim();
+    const l = clean(local);
+    const r = clean(remote);
+    
+    if (l === r) return false;
+    
+    // Splittet "1.0.0" in [1, 0, 0] und vergleicht Segment für Segment
+    const lParts = l.split(/[\.-]/).map(p => parseInt(p) || 0);
+    const rParts = r.split(/[\.-]/).map(p => parseInt(p) || 0);
+    
+    const len = Math.max(lParts.length, rParts.length);
+    for (let i = 0; i < len; i++) {
+        const lp = lParts[i] || 0;
+        const rp = rParts[i] || 0;
+        if (rp > lp) return true;
+        if (rp < lp) return false;
+    }
+    return false;
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
   try {
       const pathDisplay = document.querySelector("#path-display") as HTMLElement;
@@ -32,24 +58,20 @@ window.addEventListener("DOMContentLoaded", async () => {
       let authUser = localStorage.getItem("moonup_auth_user") || "";
       let loginInterval: number | null = null; 
 
-      // --- MODAL LOGIC START ---
       if (openSettingsBtn && settingsModal && closeSettingsBtn) {
           openSettingsBtn.addEventListener("click", () => {
-              settingsModal.style.display = "flex"; // Anzeigen
+              settingsModal.style.display = "flex"; 
           });
           closeSettingsBtn.addEventListener("click", () => {
-              settingsModal.style.display = "none"; // Verstecken
+              settingsModal.style.display = "none"; 
           });
-          // Schließen beim Klick auf Hintergrund
           window.addEventListener("click", (e) => {
               if (e.target === settingsModal) {
                   settingsModal.style.display = "none";
               }
           });
       }
-      // --- MODAL LOGIC END ---
 
-      // --- AUTOSTART LOGIC ---
       if (autostartCb) {
           try {
             const active = await isEnabled();
@@ -75,7 +97,7 @@ window.addEventListener("DOMContentLoaded", async () => {
           if(updateAllBtn) updateAllBtn.style.display = "block";
 
           usernameLabel.textContent = authUser || "Mitglied";
-          loginStatus.textContent = "";
+          loginStatus.innerHTML = ""; // Komplette Leerung wichtig für CSS !empty Check
           updateUI(); 
           if(currentWowPath) checkUpdates();
         } else {
@@ -118,7 +140,7 @@ window.addEventListener("DOMContentLoaded", async () => {
                 if (loginInterval) clearInterval(loginInterval);
                 loginBtn.disabled = false;
                 loginBtn.textContent = "Login mit Discord";
-                loginStatus.textContent = "Login abgebrochen.";
+                loginStatus.innerHTML = "";
             });
         }, 100);
 
@@ -142,7 +164,7 @@ window.addEventListener("DOMContentLoaded", async () => {
                 alert("Zugriff verweigert: Die Discord Rolle fehlt.");
                 loginBtn.disabled = false;
                 loginBtn.textContent = "Login mit Discord";
-                loginStatus.textContent = "";
+                loginStatus.innerHTML = "";
               }
             } catch (e) { console.error("Polling...", e); }
         }, 2000);
@@ -175,7 +197,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         if(!authToken || !currentWowPath) return;
         const { repo, folder } = btn.dataset;
         
-        const originalText = btn.innerHTML;
+        const ogText = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = `<span class="loader"></span> ${TEXTS.buttons.downloading}`;
         statusArea.textContent = TEXTS.status.installing + (btn.dataset.folder || "Addon");
@@ -188,7 +210,7 @@ window.addEventListener("DOMContentLoaded", async () => {
             if (String(e).includes("403")) logout();
             else alert("Fehler: " + e);
             btn.disabled = false;
-            btn.innerHTML = originalText;
+            btn.innerHTML = ogText;
             statusArea.textContent = TEXTS.status.checkError;
         }
       }
@@ -208,9 +230,8 @@ window.addEventListener("DOMContentLoaded", async () => {
           const rawRemote = localStorage.getItem(`latest_${addon.folder}`) || TEXTS.versions.missing;
           const isInstalled = ![TEXTS.versions.folderMissing, "Ordner fehlt", "TOC fehlt"].includes(rawLocal);
           
-          const localNum = parseInt(rawLocal.replace(/\D/g, "")) || 0;
-          const remoteNum = parseInt(rawRemote.replace(/\D/g, "")) || 0;
-          const canUpdate = isInstalled && authToken && rawRemote !== TEXTS.versions.missing && (remoteNum > localNum);
+          // NEUE VERSIONSPRÜFUNG
+          const canUpdate = isInstalled && authToken && isNewerVersion(rawLocal, rawRemote);
           
           if (canUpdate) updatesAvailableCount++;
 
@@ -277,16 +298,14 @@ window.addEventListener("DOMContentLoaded", async () => {
       
       updateAllBtn.addEventListener("click", async () => {
           updateAllBtn.disabled = true;
-          // REMOVED: const originalText = updateAllBtn.textContent;
+          // Variable komplett entfernt für sauberen Build!
           updateAllBtn.innerHTML = `<span class="loader"></span> ${TEXTS.buttons.downloading}`;
           
           for (const addon of ADDONS) {
               const rawLocal = localStorage.getItem(`version_${addon.folder}`) || "";
               const rawRemote = localStorage.getItem(`latest_${addon.folder}`) || "";
-              const localNum = parseInt(rawLocal.replace(/\D/g, "")) || 0;
-              const remoteNum = parseInt(rawRemote.replace(/\D/g, "")) || 0;
               
-              if (rawLocal === TEXTS.versions.folderMissing || (remoteNum > localNum)) {
+              if (rawLocal === TEXTS.versions.folderMissing || isNewerVersion(rawLocal, rawRemote)) {
                   statusArea.textContent = TEXTS.status.installing + addon.label;
                   try { await invoke("install_addon", { token: authToken, repo: addon.repo, name: addon.folder, path: currentWowPath }); }
                   catch (e) { console.error(e); }
