@@ -10,7 +10,7 @@ use reqwest::header::USER_AGENT;
 use tauri_plugin_autostart::MacosLauncher;
 
 // DEINE SERVER URL
-const API_BASE: &str = "https://moonup-auth.duckdns.org:5000";
+const API_BASE: &str = "https://mooncloud.team";
 
 fn resolve_addon_path(user_path: &str) -> PathBuf {
     let path = Path::new(user_path);

@@ -1,5 +1,5 @@
 export const API_CONFIG = {
-  baseUrl: "https://moonup-auth.duckdns.org:5000"
+  baseUrl: "https://mooncloud.team"
 };
 
 export const TEXTS = {
