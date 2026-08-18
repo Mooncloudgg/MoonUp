@@ -1,6 +1,6 @@
 {
   "productName": "Moonup",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "identifier": "com.mooncloud.moonup",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -14,7 +14,7 @@
       {
         "title": "Moonup",
         "width": 430,
-        "height": 660,
+        "height": 720,
         "resizable": false,
         "fullscreen": false,
         "maximizable": false

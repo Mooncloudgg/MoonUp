@@ -96,5 +96,15 @@ export const ADDONS: AddonItem[] = [
     provider: "curseforge",
     icon: "https://media.forgecdn.net/avatars/862/282/638344781498498498.png",
     fallbackInitials: "NS"
+  },
+  {
+    id: "rclootcouncil",
+    label: "RCLootCouncil",
+    folder: "RCLootCouncil",
+    search: "RCLoot",
+    repo: "39928",
+    provider: "curseforge",
+    icon: "",
+    fallbackInitials: "RC"
   }
 ];
