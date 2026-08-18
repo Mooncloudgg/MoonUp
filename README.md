@@ -22,18 +22,19 @@
 
 **Moonup** ist ein maßgeschneidertes Tool für unsere Gilde, das sicherstellt, dass alle Mitglieder immer die korrekten Versionen unserer internen Addons nutzen. Es eliminiert Versionskonflikte und macht Updates kinderleicht – unabhängig davon, welchen Addon-Manager (wie WoWUP oder Curse) du sonst verwendest.
 
-### Unterstütze Addons:
-* **TimelineReminders** (Pflicht): Display Raid Assignments & Personal Assignments
-* **MooncloudTools** (Pflicht): Interne Tools für den Raid-Betrieb.
-* **QUI** (Optional): Free QUI Community Version. [**Offizielles Repo von Zol**](https://github.com/zol-wow/QUI)
+### Unterstützte Addons:
+* **TimelineReminders**: Display Raid Assignments & Personal Assignments
+* **MooncloudTools**: Interne Tools für den Raid-Betrieb
+* **WoWUtils**: Automatisches Tracking der CurseForge-Version (Projekt 1620704)
+* **Northern Sky Raid Tools (NSRT)**: Automatisches Tracking (Projekt 954018)
+* **RCLootCouncil**: Loot Verteilungssystem (Projekt 39928)
 
 ### Features:
-* ✅ **Automatische Updates:** Erkennt sofort, wenn wir eine neue Version auf GitHub pushen.
-* ✅ **Sicherheit:** Zugriff nur mit gültigem Discord Login.
-* ✅ **Optionale Addons:** Wähle selbst, ob du zusätzliche Pakete wie QUI installieren möchtest.
+* ✅ **Modernes Design:** Komplett überarbeitetes, dunkles und minimalistisches UI.
+* ✅ **Automatische Updates:** Erkennt sofort, wenn wir eine neue Version pushen (GitHub) oder wenn es Updates auf CurseForge gibt.
+* ✅ **CurseForge Integration:** Direkte Anbindung an die offizielle API für externe Addons.
+* ✅ **Sicherheit:** Zugriff nur mit gültigem Discord Login (Member-Rolle erforderlich).
 * ✅ **Cross-Platform:** Läuft nativ auf Windows und macOS (Apple Silicon & Intel).
-
-![Screenshot der App](screenshot.png)
 
 ---
 
