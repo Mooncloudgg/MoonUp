@@ -4,187 +4,107 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Moonup</title>
-    <style>
-      :root {
-        --bg: #09090b; 
-        --card: #121216; 
-        --accent: #5b21b6; 
-        --text: #ffffff;
-        --text-dim: #a1a1aa; 
-        --border: #27272a; 
-        --success: #10b981; 
-        --danger: #ef4444; 
-        --discord: #5865F2;
-      }
-      
-      body { 
-        margin: 0; 
-        background-color: var(--bg); 
-        color: var(--text); 
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-        display: flex; 
-        justify-content: center; /* Horizontal mittig */
-        align-items: flex-start; /* Vertikal OBEN ausrichten statt mittig */
-        padding: 25px 10px 20px; /* 25px fester Abstand nach oben */
-        min-height: 100vh;
-        box-sizing: border-box;
-      }
-      
-      .container { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 10px; position: relative; }
-      
-      .main-banner { 
-        width: 100%; 
-        max-width: 180px; 
-        height: auto; 
-        display: block; 
-        margin: 0 auto 15px; /* 15px nach unten (+ 10px gap = 25px Abstand zur Box) */
-        filter: drop-shadow(0 0 15px rgba(91, 33, 182, 0.3)); 
-      }
-      
-      .card { 
-        background: var(--card); 
-        border: 1px solid var(--border); 
-        border-radius: 12px; 
-        padding: 15px; 
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); 
-      }
-
-      #login-section { 
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        min-height: 50px; 
-      }
-      
-      .login-btn { 
-        width: 100%; padding: 12px; margin: 0; background-color: var(--accent); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; font-size: 0.95rem; box-shadow: 0 4px 10px rgba(91, 33, 182, 0.2);
-      }
-      .login-btn:hover { background-color: #4c1d95; transform: translateY(-1px); }
-      .login-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
-
-      #login-status {
-        margin-top: 10px;
-        font-size: 0.85rem;
-        color: var(--text-dim);
-        text-align: center;
-      }
-      #login-status:empty { display: none; margin-top: 0; }
-
-      #user-display {
-        background: rgba(91, 33, 182, 0.05); border: 1px solid var(--accent); justify-content: space-between; align-items: center; padding: 10px 15px; border-radius: 10px; margin-bottom: 0;
-      }
-      .user-left { display: flex; align-items: center; gap: 12px; }
-      .user-icon { font-size: 1.2rem; }
-      #username-label { font-weight: 700; font-size: 1rem; color: #fff; }
-      
-      .logout-btn { background: transparent; border: 1px solid var(--border); color: var(--text-dim); font-size: 0.75rem; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; }
-      .logout-btn:hover { color: var(--danger); border-color: var(--danger); background: rgba(239, 68, 68, 0.05); }
-
-      .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-      .section-title { font-size: 0.75rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
-      .settings-icon { background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 1rem; padding: 0; transition: color 0.2s; }
-      .settings-icon:hover { color: #fff; }
-
-      .path-display-box { background: #000000; padding: 8px 10px; border-radius: 6px; font-size: 0.8rem; color: var(--text-dim); border: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: monospace; margin-bottom: 8px; }
-      
-      .btn-secondary { width: 100%; padding: 8px; background: transparent; border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: 0.2s; margin-bottom: 15px; }
-      .btn-secondary:hover { border-color: #fff; color: #fff; }
-
-      .addon-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
-      .addon-title { font-size: 0.9rem; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 0.05em; }
-      #refresh-btn { background: transparent; border: none; font-size: 1.1rem; cursor: pointer; color: var(--text-dim); padding: 0; transition: color 0.2s; }
-      #refresh-btn:hover { color: #fff; }
-
-      .addon-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
-      .addon-item:last-child { border-bottom: none; }
-      .addon-name { font-weight: 600; font-size: 0.95rem; display: block; margin-bottom: 2px; color: var(--text); }
-      .version-row { font-size: 0.75rem; color: var(--text-dim); }
-      .addon-actions { display: flex; align-items: center; gap: 8px; }
-      
-      .btn-primary { background: var(--accent); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: 0.2s; }
-      .btn-primary:hover { background: #4c1d95; }
-      .btn-update { background: var(--success); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
-      .btn-update:hover { background: #059669; }
-      .btn-delete { background: transparent; border: 1px solid var(--border); color: var(--text-dim); padding: 6px; border-radius: 6px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
-      .btn-delete:hover { color: var(--danger); border-color: var(--danger); background: rgba(239, 68, 68, 0.1); }
-      .lock-icon { font-size: 0.9rem; color: #eab308; } 
-
-      #update-all-btn { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: 0.2s; margin-top: 0; box-shadow: 0 4px 10px rgba(91, 33, 182, 0.2); }
-      #update-all-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 15px rgba(91, 33, 182, 0.3); }
-      #update-all-btn:disabled { background: var(--border); color: var(--text-dim); box-shadow: none; cursor: not-allowed; opacity: 0.8; transform: none; }
-
-      #delete-btn { width: 100%; padding: 10px; background: transparent; border: 1px solid var(--border); color: var(--text-dim); border-radius: 8px; cursor: pointer; font-size: 0.8rem; margin-top: 0; }
-      #delete-btn:hover { color: var(--danger); border-color: var(--danger); }
-
-      .optional-separator { margin: 12px 0 4px; text-align: center; border-bottom: 1px solid var(--border); line-height: 0.1em; color: var(--text-dim); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; }
-      .optional-separator span { background: var(--card); padding: 0 10px; }
-      
-      #status-text { font-size: 0.8rem; color: var(--text-dim); text-align: center; margin-top: 8px; min-height: 1.2em; }
-
-      /* MODAL */
-      .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
-      .modal-content { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; width: 90%; max-width: 300px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-      .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px; font-weight: 700; }
-      .modal-close { cursor: pointer; font-size: 1.5rem; line-height: 1; color: var(--text-dim); }
-      .modal-close:hover { color: var(--text); }
-      .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-      
-      .loader { border: 2px solid rgba(255, 255, 255, 0.3); border-top: 2px solid #ffffff; border-radius: 50%; width: 14px; height: 14px; animation: spin 1s linear infinite; margin-right: 8px; }
-      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
+    <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
-    <div class="container">
-      <img src="APP_BANNER.png" class="main-banner" alt="Moonup Banner" onerror="this.style.display='none'">
-      
-      <div id="login-section" class="card">
-        <button id="login-btn" class="login-btn">Login mit Discord</button>
-        <div id="login-status"></div>
+    <div class="app-container">
+
+      <!-- ═══ TOP GROUP ═══ -->
+      <div class="top-group">
+
+        <!-- Header -->
+        <header class="app-header">
+          <div class="branding">
+            <img src="/src/assets/Moonup_logo.png" class="app-logo" alt="" onerror="this.style.display='none'">
+            <span class="app-title">Moonup</span>
+            <span class="app-version-badge">v2.0</span>
+          </div>
+          <div class="header-actions">
+            <button id="refresh-btn" class="icon-btn" title="Prüfen">🔄</button>
+            <button id="open-settings-btn" class="icon-btn" title="Einstellungen">⚙️</button>
+          </div>
+        </header>
+
+        <!-- Auth -->
+        <div id="auth-section" class="auth-card">
+          <div id="login-view">
+            <button id="login-btn" class="login-btn-discord">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.893.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+              <span>Login mit Discord</span>
+            </button>
+            <div id="login-status" style="font-size:0.72rem; color:var(--text-muted); text-align:center; margin-top:5px; display:none;"></div>
+          </div>
+          <div id="user-view" class="user-bar" style="display:none;">
+            <div class="user-info">
+              <div id="user-avatar" class="user-avatar">M</div>
+              <div>
+                <span id="username-label" class="user-name">Mitglied</span>
+                <span class="user-status-dot"></span>
+              </div>
+            </div>
+            <button id="logout-btn" class="btn-logout">Abmelden</button>
+          </div>
+        </div>
+
+        <!-- Status -->
+        <div id="readiness-card" class="readiness-banner noauth">
+          <div class="readiness-dot"></div>
+          <div class="readiness-text">
+            <span id="readiness-title" class="readiness-title">Login erforderlich</span>
+            <span id="readiness-desc" class="readiness-desc">Bitte anmelden</span>
+          </div>
+        </div>
+
+        <!-- Path -->
+        <div class="path-card">
+          <div class="path-row">
+            <div id="path-display" class="path-box" title="Klicken zum Auswählen">WoW-Pfad auswählen...</div>
+            <button id="change-path-btn" class="btn-path">Ändern</button>
+            <button id="open-explorer-btn" class="btn-path" title="In Explorer öffnen">📂</button>
+          </div>
+        </div>
       </div>
 
-      <div id="user-display" style="display: none;">
-         <div class="user-left">
-            <span class="user-icon">👤</span>
-            <span id="username-label">User</span>
-         </div>
-         <button id="logout-btn" class="logout-btn">Abmelden</button>
-      </div>
-
-      <div class="card">
+      <!-- ═══ MAIN GROUP ═══ -->
+      <div class="main-group">
         <div class="section-header">
-            <span class="section-title">WoW Installation</span>
-            <button id="open-settings-btn" class="settings-icon" title="Einstellungen">⚙️</button>
+          <span class="section-label">Addons</span>
+          <span class="section-count">4 Addons</span>
         </div>
-        <div id="path-display" class="path-display-box">Pfad wählen...</div>
-        <button id="change-path-btn" class="btn-secondary">Ordner ändern</button>
-
-        <div class="addon-header">
-            <span class="addon-title">Addons</span>
-            <button id="refresh-btn" title="Neu laden">🔄</button>
+        <div id="addon-list" class="addon-list">
+          <!-- Dynamically populated -->
         </div>
-        
-        <div id="addon-list"></div>
-        
-        <div class="optional-separator"><span>Status</span></div>
-        <div id="status-text">Bereit.</div>
       </div>
 
-      <button id="update-all-btn" style="display: none;">Alle aktualisieren 🚀</button>
-      <button id="delete-btn">Alles löschen</button>
+      <!-- ═══ BOTTOM GROUP ═══ -->
+      <div class="bottom-group">
+        <button id="update-all-btn" class="btn-update-all" disabled>
+          <span>Alle aktualisieren</span>
+        </button>
+        <div id="status-text" class="status-footer">Bereit.</div>
+      </div>
+
     </div>
 
+    <!-- Settings Modal -->
     <div id="settings-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <span>Einstellungen</span>
-                <span id="close-settings-btn" class="modal-close">&times;</span>
-            </div>
-            <div class="setting-row">
-                <span>Mit Windows starten</span>
-                <input type="checkbox" id="autostart-cb">
-            </div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Einstellungen</h2>
+          <span id="close-settings-btn" class="modal-close">&times;</span>
         </div>
+        <div class="setting-row">
+          <span>Mit Windows starten</span>
+          <input type="checkbox" id="autostart-cb">
+        </div>
+        <div class="setting-row">
+          <span>Version</span>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--text-muted);">v2.0.0</span>
+        </div>
+        <div class="danger-zone">
+          <button id="delete-all-addons-btn" class="btn-danger-outline">Alle Addons entfernen</button>
+        </div>
+      </div>
     </div>
 
     <script type="module" src="/src/main.ts"></script>
