@@ -3,6 +3,8 @@ import { open, ask } from "@tauri-apps/plugin-dialog";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
 import { TEXTS, ADDONS, API_CONFIG, AddonItem } from "./config";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { v4 as uuidv4 } from "uuid";
 
 /* ── Helpers ──────────────────────────── */
@@ -168,6 +170,47 @@ window.addEventListener("DOMContentLoaded", async () => {
           }
         } catch (_) { /* still polling */ }
       }, 2000);
+    }
+
+    /* ── App Updater ──────────────────── */
+
+    async function checkForAppUpdates() {
+      try {
+        const update = await check();
+        if (update) {
+          const yes = await ask(
+            `Eine neue Version (${update.version}) von Moonup ist verfügbar!\n\nMöchtest du das Update jetzt installieren?`,
+            { title: 'Update verfügbar', kind: 'info' }
+          );
+          if (yes) {
+            statusArea.textContent = "Lade Moonup Update...";
+            let downloaded = 0;
+            let contentLength = 0;
+            await update.downloadAndInstall((event) => {
+              switch (event.event) {
+                case 'Started':
+                  contentLength = event.data.contentLength || 0;
+                  statusArea.textContent = `Lade Update (0%)`;
+                  break;
+                case 'Progress':
+                  downloaded += event.data.chunkLength;
+                  if (contentLength > 0) {
+                     const pct = Math.round((downloaded / contentLength) * 100);
+                     statusArea.textContent = `Lade Update (${pct}%)`;
+                  }
+                  break;
+                case 'Finished':
+                  statusArea.textContent = "Update wird installiert...";
+                  break;
+              }
+            });
+            statusArea.textContent = "Update abgeschlossen. Neustart...";
+            await relaunch();
+          }
+        }
+      } catch (err) {
+        console.error("App Update Check fehlgeschlagen:", err);
+      }
     }
 
     /* ── WoW Path ─────────────────────── */
@@ -465,6 +508,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     await initPath();
     updateAuthUI();
+    checkForAppUpdates();
 
   } catch (err) {
     console.error("Init error:", err);
