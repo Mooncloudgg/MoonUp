@@ -248,34 +248,48 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     /* ── Update Check ─────────────────── */
 
+    let updateTimer: number | null = null;
+    function resetAutoUpdateTimer() {
+      if (updateTimer) window.clearInterval(updateTimer);
+      updateTimer = window.setInterval(() => {
+        if (!isChecking && wowPath && authToken) {
+          checkUpdates();
+        }
+      }, 15 * 60 * 1000); // 15 Minuten
+    }
+
     async function checkUpdates() {
       if (isChecking || !wowPath) return;
       isChecking = true;
       statusArea.textContent = TEXTS.status.searching;
+      resetAutoUpdateTimer(); // Timer nach jedem Check zurücksetzen
 
-      if (authToken) {
-        const ok = await validateSession();
-        if (!ok) { isChecking = false; return; }
-      }
+      try {
+        await Promise.all(ADDONS.map(async (addon) => {
+          try {
+            const localVer: string = await invoke("get_installed_version", {
+              path: wowPath, folder: addon.folder, search: addon.search,
+            });
+            localStorage.setItem(`version_${addon.folder}`, String(localVer));
 
-      for (const addon of ADDONS) {
-        try {
-          const localVer: string = await invoke("get_installed_version", {
-            path: wowPath, folder: addon.folder, search: addon.search,
-          });
-          localStorage.setItem(`version_${addon.folder}`, String(localVer));
+            const remoteVer: string = await invoke("check_for_updates", {
+              token: authToken, repo: addon.repo, provider: addon.provider,
+            });
 
-          const remoteVer: string = await invoke("check_for_updates", {
-            token: authToken, repo: addon.repo, provider: addon.provider,
-          });
-
-          if (remoteVer === "AUTH_ERROR") { logout(true); isChecking = false; return; }
-          localStorage.setItem(`latest_${addon.folder}`, remoteVer);
-        } catch (e: any) {
-          console.error(`Check ${addon.label}:`, e);
-          if (String(e).includes("AUTH_ERROR") || String(e).includes("403")) {
-            logout(true); isChecking = false; return;
+            if (remoteVer === "AUTH_ERROR") throw new Error("AUTH_ERROR");
+            localStorage.setItem(`latest_${addon.folder}`, remoteVer);
+          } catch (e: any) {
+            console.error(`Check ${addon.label}:`, e);
+            if (String(e).includes("AUTH_ERROR") || String(e).includes("403")) {
+              throw new Error("AUTH_ERROR");
+            }
           }
+        }));
+      } catch (e: any) {
+        if (e.message === "AUTH_ERROR") {
+          logout(true);
+          isChecking = false;
+          return;
         }
       }
 
