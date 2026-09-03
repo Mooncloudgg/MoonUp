@@ -28,17 +28,42 @@ fn get_http_client() -> Client {
 }
 
 fn resolve_addon_path(user_path: &str) -> PathBuf {
-    let path = Path::new(user_path);
-    if path.ends_with("AddOns") { 
-        return path.to_path_buf(); 
+    let clean_str = user_path.trim_end_matches(['/', '\\']);
+    let p = PathBuf::from(clean_str);
+    let lower = clean_str.to_lowercase();
+
+    // 1. Wenn der Pfad bereits auf addons/addon endet -> direkt nutzen
+    if lower.ends_with("addons") || lower.ends_with("addon") {
+        return p;
     }
-    if path.ends_with("Interface") { 
-        return path.join("AddOns"); 
+
+    // 2. Wenn der Pfad auf interface endet -> nur AddOns anhängen
+    if lower.ends_with("interface") {
+        return p.join("AddOns");
     }
-    if path.ends_with("_retail_") || path.ends_with("_classic_") || path.ends_with("_ptr_") || path.ends_with("_beta_") {
-        return path.join("Interface").join("AddOns");
+
+    // 3. Wenn der Pfad auf einen WoW-Flavor endet (_retail_, _classic_, etc.)
+    if lower.ends_with("_retail_") || lower.ends_with("_classic_") || lower.ends_with("_ptr_") || lower.ends_with("_beta_") || lower.ends_with("_classic_era_") {
+        return p.join("Interface").join("AddOns");
     }
-    path.join("Interface").join("AddOns")
+
+    // 4. Wenn der Hauptordner gewählt wurde und _retail_ existiert
+    if p.join("_retail_").join("Interface").join("AddOns").exists() {
+        return p.join("_retail_").join("Interface").join("AddOns");
+    }
+
+    // 5. Wenn Interface/AddOns existiert
+    if p.join("Interface").join("AddOns").exists() {
+        return p.join("Interface").join("AddOns");
+    }
+
+    // 6. Fallback: Wenn irgendwo _retail_ vorkommt
+    if lower.contains("_retail_") {
+        return p.join("Interface").join("AddOns");
+    }
+
+    // Sicherer Standard: Wenn nichts zutrifft, aber _retail_ existieren könnte
+    p.join("_retail_").join("Interface").join("AddOns")
 }
 
 fn clean_wow_string(input: &str) -> String {
@@ -262,8 +287,8 @@ fn check_for_updates(token: String, repo: String, provider: Option<String>) -> R
     let prov = provider.unwrap_or_else(|| "mooncloud".to_string());
 
     if prov == "curseforge" {
-        // Query CurseForge API
-        let url = format!("https://api.curseforge.com/v1/mods/{}/files?pageSize=1", repo);
+        // Query CurseForge API - prefer stable releases (releaseType == 1)
+        let url = format!("https://api.curseforge.com/v1/mods/{}/files?pageSize=10", repo);
         let res = client.get(&url)
             .header(USER_AGENT, APP_USER_AGENT)
             .header("x-api-key", CF_API_KEY)
@@ -273,7 +298,9 @@ fn check_for_updates(token: String, repo: String, provider: Option<String>) -> R
             if resp.status().is_success() {
                 if let Ok(json) = resp.json::<serde_json::Value>() {
                     if let Some(files) = json["data"].as_array() {
-                        if let Some(first_file) = files.first() {
+                        let target = files.iter().find(|f| f["releaseType"].as_u64() == Some(1))
+                            .or_else(|| files.first());
+                        if let Some(first_file) = target {
                             if let Some(display_name) = first_file["displayName"].as_str() {
                                 return Ok(display_name.to_string());
                             }
@@ -292,7 +319,9 @@ fn check_for_updates(token: String, repo: String, provider: Option<String>) -> R
             if f_resp.status().is_success() {
                 if let Ok(json) = f_resp.json::<serde_json::Value>() {
                     if let Some(files) = json["data"].as_array() {
-                        if let Some(first_file) = files.first() {
+                        let target = files.iter().find(|f| f["releaseType"].as_u64() == Some(1))
+                            .or_else(|| files.first());
+                        if let Some(first_file) = target {
                             if let Some(display_name) = first_file["displayName"].as_str() {
                                 return Ok(display_name.to_string());
                             }
@@ -360,8 +389,8 @@ fn install_addon(token: String, repo: String, _name: String, path: String, provi
             .send()
             .map_err(|e| format!("Download-Fehler: {}", e))?
     } else if prov == "curseforge" {
-        // Fetch latest release file info from CurseForge
-        let url = format!("https://api.curseforge.com/v1/mods/{}/files?pageSize=1", repo);
+        // Fetch latest stable release file info from CurseForge
+        let url = format!("https://api.curseforge.com/v1/mods/{}/files?pageSize=10", repo);
         let cf_res = client.get(&url)
             .header(USER_AGENT, APP_USER_AGENT)
             .header("x-api-key", CF_API_KEY)
@@ -372,7 +401,9 @@ fn install_addon(token: String, repo: String, _name: String, path: String, provi
         if cf_res.status().is_success() {
             if let Ok(json) = cf_res.json::<serde_json::Value>() {
                 if let Some(files) = json["data"].as_array() {
-                    if let Some(first_file) = files.first() {
+                    let target = files.iter().find(|f| f["releaseType"].as_u64() == Some(1))
+                        .or_else(|| files.first());
+                    if let Some(first_file) = target {
                         if let Some(url_str) = first_file["downloadUrl"].as_str() {
                             dl_url = url_str.to_string();
                         } else if let (Some(file_id), Some(file_name)) = (first_file["id"].as_u64(), first_file["fileName"].as_str()) {
@@ -391,7 +422,9 @@ fn install_addon(token: String, repo: String, _name: String, path: String, provi
                 if f_resp.status().is_success() {
                     if let Ok(json) = f_resp.json::<serde_json::Value>() {
                         if let Some(files) = json["data"].as_array() {
-                            if let Some(first_file) = files.first() {
+                            let target = files.iter().find(|f| f["releaseType"].as_u64() == Some(1))
+                                .or_else(|| files.first());
+                            if let Some(first_file) = target {
                                 if let Some(url_str) = first_file["downloadUrl"].as_str() {
                                     dl_url = url_str.to_string();
                                 }

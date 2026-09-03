@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { open, ask } from "@tauri-apps/plugin-dialog";
+import { open, ask, message } from "@tauri-apps/plugin-dialog";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
 import { TEXTS, ADDONS, API_CONFIG, AddonItem } from "./config";
@@ -16,6 +16,8 @@ interface VerifyResult {
 }
 
 const DISCORD_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.893.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>`;
+const EYE_OPEN_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+const EYE_OFF_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
 
 function cleanVersion(v: string): string {
   if (!v) return "";
@@ -76,6 +78,26 @@ window.addEventListener("DOMContentLoaded", async () => {
     let authUser   = localStorage.getItem("moonup_auth_user") || "";
     let loginPoll: number | null = null;
     let isChecking = false;
+
+    // Ignorierte Addons (persistent in localStorage)
+    let ignoredAddons: string[] = [];
+    try {
+      ignoredAddons = JSON.parse(localStorage.getItem("moonup_ignored_addons") || "[]");
+    } catch (_) { ignoredAddons = []; }
+
+    function isAddonIgnored(id: string): boolean {
+      return ignoredAddons.includes(id);
+    }
+
+    function toggleIgnoreAddon(id: string) {
+      if (ignoredAddons.includes(id)) {
+        ignoredAddons = ignoredAddons.filter(x => x !== id);
+      } else {
+        ignoredAddons.push(id);
+      }
+      localStorage.setItem("moonup_ignored_addons", JSON.stringify(ignoredAddons));
+      renderAddons();
+    }
 
     /* ── Settings ─────────────────────── */
 
@@ -217,27 +239,42 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     async function initPath() {
       if (!wowPath) {
-        try {
-          const detected: string | null = await invoke("detect_wow_path");
-          if (detected) {
-            wowPath = detected;
-            localStorage.setItem("moonup_wow_path", detected);
-            statusArea.textContent = TEXTS.status.autoDetected;
+        pathDisplay.textContent = "⚠️ WoW-Pfad auswählen...";
+        pathDisplay.title = "Klicken, um deinen WoW-Ordner auszuwählen";
+        statusArea.textContent = "Bitte WoW-Pfad manuell auswählen.";
+
+        // Bei Erstinstallation: Direkt den Auswahldialog öffnen
+        setTimeout(async () => {
+          if (!wowPath) {
+            await message(
+              "Willkommen bei Moonup!\n\nBitte wähle im nächsten Schritt deinen World of Warcraft Ordner aus (z.B. World of Warcraft/_retail_ oder Interface/AddOns).",
+              { title: "WoW-Pfad auswählen", kind: "info" }
+            );
+            await selectPath();
           }
-        } catch (_) {}
+        }, 300);
+      } else {
+        pathDisplay.textContent = wowPath;
+        pathDisplay.title = wowPath;
       }
-      pathDisplay.textContent = wowPath || "WoW-Pfad auswählen...";
-      pathDisplay.title = wowPath || "";
     }
 
     async function selectPath() {
-      const sel = await open({ directory: true });
-      if (sel && typeof sel === "string") {
-        wowPath = sel;
-        localStorage.setItem("moonup_wow_path", sel);
-        pathDisplay.textContent = sel;
-        pathDisplay.title = sel;
-        await checkUpdates();
+      try {
+        const sel = await open({
+          directory: true,
+          title: "World of Warcraft Ordner auswählen (_retail_ oder Interface/AddOns)"
+        });
+        if (sel && typeof sel === "string") {
+          wowPath = sel;
+          localStorage.setItem("moonup_wow_path", sel);
+          pathDisplay.textContent = sel;
+          pathDisplay.title = sel;
+          statusArea.textContent = "WoW-Pfad festgelegt.";
+          await checkUpdates();
+        }
+      } catch (err) {
+        console.error("Path selection error:", err);
       }
     }
 
@@ -355,14 +392,19 @@ window.addEventListener("DOMContentLoaded", async () => {
         const remote = localStorage.getItem(`latest_${addon.folder}`) || "-";
         const installed = !["Nicht installiert", "Unbekannt", "-"].includes(local);
         const hasUpdate = installed && !!authToken && isNewerVersion(local, remote);
+        const ignored = isAddonIgnored(addon.id);
 
-        if (hasUpdate) pendingCount++;
-        if (!installed) missingCount++;
+        if (!ignored) {
+          if (hasUpdate) pendingCount++;
+          if (!installed) missingCount++;
+        }
 
         // Action
         let action = "";
         if (!authToken) {
           action = `<span style="color:var(--text-muted); font-size:0.78rem;">🔒</span>`;
+        } else if (ignored) {
+          action = `<button class="btn-ignored-pill unignore-btn" data-id="${addon.id}" title="Updates sind pausiert. Klicken zum Aktivieren."><span>Pausiert</span></button>`;
         } else if (!installed) {
           action = `<button class="btn-install install-btn" data-id="${addon.id}">Installieren</button>`;
         } else if (hasUpdate) {
@@ -376,12 +418,15 @@ window.addEventListener("DOMContentLoaded", async () => {
           ? `<img src="${addon.icon}" class="addon-icon" alt="" onerror="this.outerHTML='<div class=\\'addon-icon-fallback\\'>${addon.fallbackInitials || "?"}</div>'">`
           : `<div class="addon-icon-fallback">${addon.fallbackInitials || "?"}</div>`;
 
+        // Ignore/Pause Toggle Button
+        const ignoreBtn = `<button class="btn-icon ignore-btn ${ignored ? "is-ignored" : ""}" data-id="${addon.id}" title="${ignored ? "Pausierung aufheben (Addon wieder verwalten)" : "Updates pausieren (nicht über Moonup verwalten)"}">${ignored ? EYE_OFF_SVG : EYE_OPEN_SVG}</button>`;
+
         return `
-          <div class="addon-item">
+          <div class="addon-item ${ignored ? "item-ignored" : ""}">
             <div class="addon-left">
               ${icon}
               <div class="addon-meta">
-                <span class="addon-name">${addon.label}</span>
+                <span class="addon-name">${addon.label} ${ignored ? `<span class="tag-ignored">Pausiert</span>` : ""}</span>
                 <div class="addon-versions">
                   <span class="v-local">${local}</span>
                   <span class="v-arrow">→</span>
@@ -391,6 +436,7 @@ window.addEventListener("DOMContentLoaded", async () => {
             </div>
             <div class="addon-actions">
               ${action}
+              ${ignoreBtn}
               ${installed ? `<button class="btn-delete del-btn" data-id="${addon.id}" title="Löschen">🗑</button>` : ""}
             </div>
           </div>`;
@@ -402,6 +448,9 @@ window.addEventListener("DOMContentLoaded", async () => {
       if (!authToken) {
         updateAllBtn.disabled = true;
         updateAllBtn.innerHTML = `<span>Login erforderlich</span>`;
+      } else if (!wowPath) {
+        updateAllBtn.disabled = true;
+        updateAllBtn.innerHTML = `<span>Bitte WoW-Pfad wählen</span>`;
       } else if (pendingCount > 0) {
         updateAllBtn.disabled = false;
         updateAllBtn.innerHTML = `<span>${pendingCount} Update(s) installieren</span>`;
@@ -418,6 +467,10 @@ window.addEventListener("DOMContentLoaded", async () => {
         readinessCard.className = "readiness-banner noauth";
         readinessTitle.textContent = "Login erforderlich";
         readinessDesc.textContent = "Bitte anmelden";
+      } else if (!wowPath) {
+        readinessCard.className = "readiness-banner missing";
+        readinessTitle.textContent = "WoW-Pfad fehlt";
+        readinessDesc.textContent = "Bitte oben Pfad auswählen";
       } else if (missingCount > 0) {
         readinessCard.className = "readiness-banner missing";
         readinessTitle.textContent = `${missingCount} Addon(s) fehlen`;
@@ -438,6 +491,20 @@ window.addEventListener("DOMContentLoaded", async () => {
           const t = e.currentTarget as HTMLButtonElement;
           const a = ADDONS.find(x => x.id === t.dataset.id);
           if (a) installAddon(a, t);
+        });
+      });
+      document.querySelectorAll(".ignore-btn").forEach(btn => {
+        btn.addEventListener("click", e => {
+          const t = e.currentTarget as HTMLButtonElement;
+          const id = t.dataset.id;
+          if (id) toggleIgnoreAddon(id);
+        });
+      });
+      document.querySelectorAll(".unignore-btn").forEach(btn => {
+        btn.addEventListener("click", e => {
+          const t = e.currentTarget as HTMLButtonElement;
+          const id = t.dataset.id;
+          if (id) toggleIgnoreAddon(id);
         });
       });
       document.querySelectorAll(".del-btn").forEach(btn => {
@@ -484,6 +551,8 @@ window.addEventListener("DOMContentLoaded", async () => {
       updateAllBtn.innerHTML = `<span class="loader"></span> Aktualisiere...`;
 
       for (const addon of ADDONS) {
+        if (isAddonIgnored(addon.id)) continue; // Ignorierte Addons überspringen
+
         const local = localStorage.getItem(`version_${addon.folder}`) || "";
         const remote = localStorage.getItem(`latest_${addon.folder}`) || "";
         const inst = !["Nicht installiert", "Unbekannt", "-"].includes(local);

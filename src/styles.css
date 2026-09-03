@@ -471,6 +471,66 @@ body {
   border-radius: 6px;
 }
 
+.btn-ignored-pill {
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px dashed var(--border-hover);
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-ignored-pill:hover {
+  border-color: var(--accent-light);
+  color: var(--accent-light);
+  background: var(--surface-raised);
+}
+
+.addon-item.item-ignored {
+  border-style: dashed;
+}
+
+.tag-ignored {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.78rem;
+  transition: all 0.15s ease;
+}
+
+.btn-icon:hover {
+  color: var(--text);
+  background: var(--surface-raised);
+}
+
+.btn-icon.is-ignored {
+  color: var(--warning);
+}
+
 .btn-delete {
   background: transparent;
   border: none;
