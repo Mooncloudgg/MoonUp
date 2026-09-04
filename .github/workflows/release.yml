@@ -44,6 +44,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "mooncloud"
+          TAURI_KEY_PASSWORD: "mooncloud"
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Moonup v__VERSION__'
