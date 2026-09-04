@@ -70,12 +70,14 @@ window.addEventListener("DOMContentLoaded", async () => {
     const closeSettingsBtn = document.getElementById("close-settings-btn")!;
     const settingsModal    = document.getElementById("settings-modal")!;
     const autostartCb      = document.getElementById("autostart-cb") as HTMLInputElement;
+    const autoBgUpdateCb   = document.getElementById("auto-bg-update-cb") as HTMLInputElement;
     const deleteAllBtn     = document.getElementById("delete-all-addons-btn") as HTMLButtonElement;
 
     // State
     let wowPath    = localStorage.getItem("moonup_wow_path") || "";
     let authToken  = localStorage.getItem("moonup_auth_token") || "";
     let authUser   = localStorage.getItem("moonup_auth_user") || "";
+    let autoBgUpdate = localStorage.getItem("moonup_auto_bg_update") !== "false";
     let loginPoll: number | null = null;
     let isChecking = false;
 
@@ -109,6 +111,12 @@ window.addEventListener("DOMContentLoaded", async () => {
     autostartCb.addEventListener("change", async () => {
       try { if (autostartCb.checked) await enable(); else await disable(); }
       catch (e) { autostartCb.checked = !autostartCb.checked; alert("Autostart-Fehler: " + e); }
+    });
+
+    autoBgUpdateCb.checked = autoBgUpdate;
+    autoBgUpdateCb.addEventListener("change", () => {
+      autoBgUpdate = autoBgUpdateCb.checked;
+      localStorage.setItem("moonup_auto_bg_update", String(autoBgUpdate));
     });
 
     /* ── Session ──────────────────────── */
@@ -333,6 +341,39 @@ window.addEventListener("DOMContentLoaded", async () => {
       isChecking = false;
       statusArea.textContent = TEXTS.status.ready;
       renderAddons();
+
+      // Silent background auto-update for MooncloudTools
+      if (autoBgUpdate && authToken && wowPath && !isAddonIgnored("mooncloud-tools")) {
+        const mcAddon = ADDONS.find(a => a.id === "mooncloud-tools");
+        if (mcAddon) {
+          const local = localStorage.getItem(`version_${mcAddon.folder}`);
+          const remote = localStorage.getItem(`latest_${mcAddon.folder}`);
+          const installed = local && !["Nicht installiert", "Unbekannt", "-"].includes(local);
+          if (installed && remote && isNewerVersion(local, remote)) {
+            try {
+              console.log(`[AutoUpdate] Starting background update for ${mcAddon.label}...`);
+              await invoke("install_addon", {
+                token: authToken,
+                repo: mcAddon.repo,
+                name: mcAddon.folder,
+                path: wowPath,
+                provider: mcAddon.provider,
+                directUrl: mcAddon.directUrl || null,
+              });
+              const newLocal: string = await invoke("get_installed_version", {
+                path: wowPath,
+                folder: mcAddon.folder,
+                search: mcAddon.search,
+              });
+              localStorage.setItem(`version_${mcAddon.folder}`, String(newLocal));
+              console.log(`[AutoUpdate] ${mcAddon.label} updated to ${newLocal}`);
+              renderAddons();
+            } catch (err) {
+              console.warn(`[AutoUpdate] Background update for ${mcAddon.label} failed:`, err);
+            }
+          }
+        }
+      }
     }
 
     /* ── Install / Update ─────────────── */
