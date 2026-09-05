@@ -673,3 +673,21 @@ body {
 }
 
 .btn-danger-outline:hover { background: var(--danger-bg); }
+
+.btn-check-update {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text-sub);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-check-update:hover {
+  border-color: var(--accent-light);
+  color: #fff;
+  background: var(--accent);
+}

@@ -67,19 +67,28 @@ window.addEventListener("DOMContentLoaded", async () => {
     const statusArea      = document.getElementById("status-text")!;
 
     const openSettingsBtn  = document.getElementById("open-settings-btn") as HTMLButtonElement;
-    const closeSettingsBtn = document.getElementById("close-settings-btn")!;
-    const settingsModal    = document.getElementById("settings-modal")!;
-    const autostartCb      = document.getElementById("autostart-cb") as HTMLInputElement;
-    const autoBgUpdateCb   = document.getElementById("auto-bg-update-cb") as HTMLInputElement;
-    const deleteAllBtn     = document.getElementById("delete-all-addons-btn") as HTMLButtonElement;
+    const closeSettingsBtn   = document.getElementById("close-settings-btn")!;
+    const settingsModal      = document.getElementById("settings-modal")!;
+    const autostartCb        = document.getElementById("autostart-cb") as HTMLInputElement;
+    const closeToTrayCb      = document.getElementById("close-to-tray-cb") as HTMLInputElement;
+    const autoBgUpdateCb     = document.getElementById("auto-bg-update-cb") as HTMLInputElement;
+    const appVersionLabel    = document.getElementById("app-version-label")!;
+    const checkAppUpdateBtn  = document.getElementById("check-app-update-btn") as HTMLButtonElement;
+    const deleteAllBtn       = document.getElementById("delete-all-addons-btn") as HTMLButtonElement;
 
     // State
     let wowPath    = localStorage.getItem("moonup_wow_path") || "";
     let authToken  = localStorage.getItem("moonup_auth_token") || "";
     let authUser   = localStorage.getItem("moonup_auth_user") || "";
     let autoBgUpdate = localStorage.getItem("moonup_auto_bg_update") !== "false";
+    let closeToTray  = localStorage.getItem("moonup_close_to_tray") !== "false";
     let loginPoll: number | null = null;
     let isChecking = false;
+
+    // Sync initial close-to-tray state with backend
+    try {
+      await invoke("set_close_to_tray", { enabled: closeToTray });
+    } catch (_) {}
 
     // Ignorierte Addons (persistent in localStorage)
     let ignoredAddons: string[] = [];
@@ -113,11 +122,40 @@ window.addEventListener("DOMContentLoaded", async () => {
       catch (e) { autostartCb.checked = !autostartCb.checked; alert("Autostart-Fehler: " + e); }
     });
 
+    closeToTrayCb.checked = closeToTray;
+    closeToTrayCb.addEventListener("change", async () => {
+      closeToTray = closeToTrayCb.checked;
+      localStorage.setItem("moonup_close_to_tray", String(closeToTray));
+      try {
+        await invoke("set_close_to_tray", { enabled: closeToTray });
+      } catch (err) {
+        console.error("Set close to tray error:", err);
+      }
+    });
+
     autoBgUpdateCb.checked = autoBgUpdate;
     autoBgUpdateCb.addEventListener("change", () => {
       autoBgUpdate = autoBgUpdateCb.checked;
       localStorage.setItem("moonup_auto_bg_update", String(autoBgUpdate));
     });
+
+    if (appVersionLabel) {
+      appVersionLabel.textContent = TEXTS.app.version;
+    }
+
+    if (checkAppUpdateBtn) {
+      checkAppUpdateBtn.addEventListener("click", async () => {
+        checkAppUpdateBtn.disabled = true;
+        const origText = checkAppUpdateBtn.textContent;
+        checkAppUpdateBtn.textContent = "...";
+        try {
+          await checkForAppUpdates(true);
+        } finally {
+          checkAppUpdateBtn.disabled = false;
+          checkAppUpdateBtn.textContent = origText;
+        }
+      });
+    }
 
     /* ── Session ──────────────────────── */
 
@@ -204,9 +242,11 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     /* ── App Updater ──────────────────── */
 
-    async function checkForAppUpdates() {
+    async function checkForAppUpdates(manual = false) {
       try {
+        console.log("[Updater] Checking for Moonup updates...");
         const update = await check();
+        console.log("[Updater] Check result:", update);
         if (update) {
           const yes = await ask(
             `Eine neue Version (${update.version}) von Moonup ist verfügbar!\n\nMöchtest du das Update jetzt installieren?`,
@@ -237,9 +277,20 @@ window.addEventListener("DOMContentLoaded", async () => {
             statusArea.textContent = "Update abgeschlossen. Neustart...";
             await relaunch();
           }
+        } else if (manual) {
+          await message("Moonup ist auf dem neuesten Stand (" + TEXTS.app.version + ") ✓", {
+            title: "Kein Update verfügbar",
+            kind: "info",
+          });
         }
       } catch (err) {
         console.error("App Update Check fehlgeschlagen:", err);
+        if (manual) {
+          await message("Fehler beim Prüfen auf Updates: " + err, {
+            title: "Fehler",
+            kind: "error",
+          });
+        }
       }
     }
 
@@ -300,7 +351,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         if (!isChecking && wowPath && authToken) {
           checkUpdates();
         }
-      }, 15 * 60 * 1000); // 15 Minuten
+      }, 3 * 60 * 1000); // Alle 3 Minuten im Hintergrund prüfen
     }
 
     async function checkUpdates() {

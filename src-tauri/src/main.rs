@@ -7,7 +7,15 @@ use std::path::{Path, PathBuf};
 use reqwest::blocking::Client;
 use reqwest::header::{USER_AGENT, AUTHORIZATION};
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicBool, Ordering};
+use tauri::{
+    menu::{MenuBuilder, MenuItemBuilder},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Manager, WindowEvent,
+};
 use tauri_plugin_autostart::MacosLauncher;
+
+static CLOSE_TO_TRAY: AtomicBool = AtomicBool::new(true);
 
 const API_BASE: &str = "https://mooncloud.team";
 const APP_USER_AGENT: &str = "Moonup-App/2.0";
@@ -565,6 +573,11 @@ fn open_in_explorer(path: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn set_close_to_tray(enabled: bool) {
+    CLOSE_TO_TRAY.store(enabled, Ordering::SeqCst);
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
@@ -572,7 +585,69 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec![]))) 
+        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec![])))
+        .setup(|app| {
+            // Context menu for System Tray
+            let show_i = MenuItemBuilder::with_id("show", "Moonup öffnen").build(app)?;
+            let quit_i = MenuItemBuilder::with_id("quit", "Beenden").build(app)?;
+
+            let menu = MenuBuilder::new(app)
+                .item(&show_i)
+                .separator()
+                .item(&quit_i)
+                .build()?;
+
+            let _tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .tooltip("Moonup")
+                .menu(&menu)
+                .show_menu_on_left_click(false)
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "show" => {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.unminimize();
+                            let _ = w.set_focus();
+                        }
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        let app = tray.app_handle();
+                        if let Some(w) = app.get_webview_window("main") {
+                            if let Ok(visible) = w.is_visible() {
+                                if visible {
+                                    let _ = w.hide();
+                                } else {
+                                    let _ = w.show();
+                                    let _ = w.unminimize();
+                                    let _ = w.set_focus();
+                                }
+                            }
+                        }
+                    }
+                })
+                .build(app)?;
+
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                if CLOSE_TO_TRAY.load(Ordering::SeqCst) {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             detect_wow_path,
             verify_session,
@@ -580,7 +655,8 @@ fn main() {
             install_addon, 
             get_installed_version, 
             uninstall_addon,
-            open_in_explorer
+            open_in_explorer,
+            set_close_to_tray
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
