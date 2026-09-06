@@ -1,6 +1,6 @@
 {
   "productName": "Moonup",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "identifier": "com.mooncloud.moonup",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -43,7 +43,13 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "publisher": "Mooncloud"
+    "publisher": "Mooncloud",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false
+      }
+    }
   },
   "plugins": {
     "shell": {
@@ -53,7 +59,10 @@
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ2MDVFQTY5MTA2QzQxOTYKUldTV1FXd1FhZW9GMWdXRC9WZkRjOHM3YkJVa2g3VjkxSjhXK2tzaUhHYTZBM25oY2w4bDJteHAK",
       "endpoints": [
         "https://github.com/Mooncloudgg/MoonUp/releases/latest/download/latest.json"
-      ]
+      ],
+      "windows": {
+        "installerArgs": ["/S"]
+      }
     }
   }
 }

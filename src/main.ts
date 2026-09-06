@@ -106,6 +106,10 @@ window.addEventListener("DOMContentLoaded", async () => {
     const windowCloseBtn     = document.getElementById("window-close-btn") as HTMLButtonElement;
     const notificationsCb   = document.getElementById("notifications-cb") as HTMLInputElement;
 
+    // Header In-App Update Pill
+    const appUpdatePill      = document.getElementById("app-update-pill") as HTMLButtonElement;
+    const appUpdatePillText  = document.getElementById("app-update-pill-text") as HTMLSpanElement;
+
     // Context Menu DOM
     const contextMenu    = document.getElementById("addon-context-menu") as HTMLDivElement;
     const ctxExplorer    = document.getElementById("ctx-explorer") as HTMLDivElement;
@@ -414,50 +418,82 @@ window.addEventListener("DOMContentLoaded", async () => {
       }, 2000);
     }
 
-    /* ── App Updater ──────────────────── */
+    /* ── App Updater (Discord Style: Silent Background Download & Pill) ── */
+
+    let updateReadyToRelaunch = false;
+
+    if (appUpdatePill) {
+      appUpdatePill.addEventListener("click", async () => {
+        if (updateReadyToRelaunch) {
+          appUpdatePill.disabled = true;
+          appUpdatePillText.textContent = "Neustart...";
+          try {
+            await relaunch();
+          } catch (err) {
+            console.error("Relaunch error:", err);
+            appUpdatePill.disabled = false;
+            appUpdatePillText.textContent = "Fehler beim Neustart";
+          }
+        }
+      });
+    }
 
     async function checkForAppUpdates(manual = false) {
       try {
         console.log("[Updater] Checking for Moonup updates...");
         const update = await check();
         console.log("[Updater] Check result:", update);
+
         if (update) {
-          if (notifiedAppUpdate !== update.version) {
-            notifiedAppUpdate = update.version;
+          const newVer = update.version;
+
+          if (appUpdatePill && appUpdatePillText) {
+            appUpdatePill.style.display = "flex";
+            appUpdatePillText.textContent = `Lade v${newVer}...`;
+          }
+
+          if (notifiedAppUpdate !== newVer) {
+            notifiedAppUpdate = newVer;
             await notifyUser(
               "Moonup • Update verfügbar",
-              `Moonup v${update.version} ist verfügbar! Klicke zum Installieren.`
+              `Moonup v${newVer} wird im Hintergrund heruntergeladen.`
             );
           }
-          const yes = await ask(
-            `Eine neue Version (${update.version}) von Moonup ist verfügbar!\n\nMöchtest du das Update jetzt installieren?`,
-            { title: 'Update verfügbar', kind: 'info' }
-          );
-          if (yes) {
-            statusArea.textContent = "Lade Moonup Update...";
-            let downloaded = 0;
-            let contentLength = 0;
-            await update.downloadAndInstall((event) => {
-              switch (event.event) {
-                case 'Started':
-                  contentLength = event.data.contentLength || 0;
-                  statusArea.textContent = `Lade Update (0%)`;
-                  break;
-                case 'Progress':
-                  downloaded += event.data.chunkLength;
-                  if (contentLength > 0) {
-                     const pct = Math.round((downloaded / contentLength) * 100);
-                     statusArea.textContent = `Lade Update (${pct}%)`;
-                  }
-                  break;
-                case 'Finished':
-                  statusArea.textContent = "Update wird installiert...";
-                  break;
-              }
-            });
-            statusArea.textContent = "Update abgeschlossen. Neustart...";
-            await relaunch();
+
+          // Silent Background Download and Install
+          let downloaded = 0;
+          let contentLength = 0;
+          await update.downloadAndInstall((event) => {
+            switch (event.event) {
+              case 'Started':
+                contentLength = event.data.contentLength || 0;
+                if (appUpdatePillText) appUpdatePillText.textContent = `v${newVer} (0%)`;
+                break;
+              case 'Progress':
+                downloaded += event.data.chunkLength;
+                if (contentLength > 0 && appUpdatePillText) {
+                  const pct = Math.round((downloaded / contentLength) * 100);
+                  appUpdatePillText.textContent = `v${newVer} (${pct}%)`;
+                }
+                break;
+              case 'Finished':
+                break;
+            }
+          });
+
+          // Staging complete! Ready for 1-click relaunch
+          updateReadyToRelaunch = true;
+          if (appUpdatePill && appUpdatePillText) {
+            appUpdatePill.style.display = "flex";
+            appUpdatePillText.textContent = `v${newVer} | Neustart`;
+            appUpdatePill.title = `Moonup v${newVer} ist einsatzbereit. Klicken zum sofortigen Neustart!`;
           }
+
+          await notifyUser(
+            "Moonup • Update bereit",
+            `v${newVer} ist einsatzbereit! Starte Moonup jetzt neu.`
+          );
+
         } else if (manual) {
           await message("Moonup ist auf dem neuesten Stand (" + TEXTS.app.version + ") ✓", {
             title: "Kein Update verfügbar",
@@ -466,6 +502,9 @@ window.addEventListener("DOMContentLoaded", async () => {
         }
       } catch (err) {
         console.error("App Update Check fehlgeschlagen:", err);
+        if (appUpdatePill) {
+          appUpdatePill.style.display = "none";
+        }
         if (manual) {
           await message("Fehler beim Prüfen auf Updates: " + err, {
             title: "Fehler",
