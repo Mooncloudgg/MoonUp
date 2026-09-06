@@ -52,3 +52,4 @@ jobs:
           releaseBody: 'Automatische Version erstellt via GitHub Actions.'
           releaseDraft: false
           prerelease: false
+          args: --ignore-version-mismatches
