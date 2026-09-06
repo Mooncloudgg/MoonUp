@@ -388,6 +388,9 @@ fn check_for_updates(token: String, repo: String, provider: Option<String>) -> R
 
 #[tauri::command]
 fn install_addon(token: String, repo: String, _name: String, path: String, provider: Option<String>, direct_url: Option<String>) -> Result<(), String> {
+    if token.trim().is_empty() {
+        return Err("Login erforderlich. Bitte zuerst mit Discord anmelden.".to_string());
+    }
     let client = get_http_client();
     let prov = provider.unwrap_or_else(|| "mooncloud".to_string());
 
@@ -550,8 +553,16 @@ fn uninstall_addon(path: String, name: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn open_in_explorer(path: String) -> Result<(), String> {
-    let resolved = resolve_addon_path(&path);
+fn open_in_explorer(path: String, folder: Option<String>) -> Result<(), String> {
+    let mut resolved = resolve_addon_path(&path);
+    if let Some(f) = folder {
+        if !f.trim().is_empty() {
+            let child = resolved.join(&f);
+            if child.exists() {
+                resolved = child;
+            }
+        }
+    }
     if !resolved.exists() {
         return Err("Verzeichnis existiert nicht".to_string());
     }

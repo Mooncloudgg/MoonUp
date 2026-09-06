@@ -21,7 +21,7 @@ export const API_CONFIG = {
 export const TEXTS = {
   app: {
     title: "Moonup",
-    version: "v2.1.0",
+    version: "v2.1.1",
   },
   buttons: {
     login: "Login mit Discord",

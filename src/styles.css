@@ -847,3 +847,65 @@ input:checked + .slider:before { transform: translateX(16px); }
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Context Menu ── */
+.context-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  padding: 6px;
+  min-width: 175px;
+  backdrop-filter: blur(12px);
+  user-select: none;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.context-menu-item svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: color 0.12s ease;
+}
+
+.context-menu-item:hover:not(.disabled) {
+  background: var(--accent-subtle);
+  color: var(--text-bright);
+}
+
+.context-menu-item:hover:not(.disabled) svg {
+  color: var(--accent);
+}
+
+.context-menu-item.danger:hover:not(.disabled) {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+.context-menu-item.danger:hover:not(.disabled) svg {
+  color: var(--danger);
+}
+
+.context-menu-item.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.context-menu-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 4px 0;
+}

@@ -106,6 +106,22 @@ window.addEventListener("DOMContentLoaded", async () => {
     const windowCloseBtn     = document.getElementById("window-close-btn") as HTMLButtonElement;
     const notificationsCb   = document.getElementById("notifications-cb") as HTMLInputElement;
 
+    // Context Menu DOM
+    const contextMenu    = document.getElementById("addon-context-menu") as HTMLDivElement;
+    const ctxExplorer    = document.getElementById("ctx-explorer") as HTMLDivElement;
+    const ctxReinstall   = document.getElementById("ctx-reinstall") as HTMLDivElement;
+    const ctxIgnore      = document.getElementById("ctx-ignore") as HTMLDivElement;
+    const ctxIgnoreLabel = document.getElementById("ctx-ignore-label") as HTMLSpanElement;
+    const ctxDelete      = document.getElementById("ctx-delete") as HTMLDivElement;
+    let activeContextAddon: AddonItem | null = null;
+
+    function hideContextMenu() {
+      if (contextMenu) {
+        contextMenu.style.display = "none";
+        activeContextAddon = null;
+      }
+    }
+
     // State
     let wowPath    = localStorage.getItem("moonup_wow_path") || "";
     let authToken  = localStorage.getItem("moonup_auth_token") || "";
@@ -518,9 +534,9 @@ window.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
-    async function openExplorer() {
+    async function openExplorer(folder?: string) {
       if (!wowPath) { alert("Bitte zuerst WoW-Pfad auswählen."); return; }
-      try { await invoke("open_in_explorer", { path: wowPath }); } catch (e) { alert("Fehler: " + e); }
+      try { await invoke("open_in_explorer", { path: wowPath, folder: folder || null }); } catch (e) { alert("Fehler: " + e); }
     }
 
     /* ── Update Check ─────────────────── */
@@ -768,7 +784,7 @@ window.addEventListener("DOMContentLoaded", async () => {
           : "";
 
         return `
-          <div class="addon-card ${ignored ? "is-paused" : ""}">
+          <div class="addon-card ${ignored ? "is-paused" : ""}" data-id="${addon.id}">
             <div class="card-left">
               ${icon}
               <div class="card-info">
@@ -862,6 +878,82 @@ window.addEventListener("DOMContentLoaded", async () => {
           if (a) uninstallAddon(a);
         });
       });
+
+      // Context Menu on Addon Cards
+      document.querySelectorAll(".addon-card").forEach(cardEl => {
+        cardEl.addEventListener("contextmenu", (e: Event) => {
+          const me = e as MouseEvent;
+          me.preventDefault();
+          me.stopPropagation();
+
+          const id = (cardEl as HTMLElement).dataset.id;
+          const addon = ADDONS.find(x => x.id === id);
+          if (!addon || !contextMenu) return;
+
+          activeContextAddon = addon;
+
+          let local = localStorage.getItem(`version_${addon.folder}`);
+          if (!local || local === "Ordner fehlt") local = "Nicht installiert";
+          const installed = !["Nicht installiert", "Unbekannt", "-"].includes(local);
+          const ignored = isAddonIgnored(addon.id);
+
+          // 1. Explorer (nur wenn installiert und WoW-Pfad gewählt)
+          if (installed && wowPath) {
+            ctxExplorer.classList.remove("disabled");
+            ctxExplorer.title = `${addon.label} im Explorer anzeigen`;
+          } else {
+            ctxExplorer.classList.add("disabled");
+            ctxExplorer.title = "Addon ist nicht auf der Festplatte installiert";
+          }
+
+          // 2. Reinstall (NUR wenn eingeloggt & installiert & WoW-Pfad gewählt)
+          if (authToken && installed && wowPath) {
+            ctxReinstall.classList.remove("disabled");
+            ctxReinstall.title = `${addon.label} neu herunterladen und installieren`;
+          } else {
+            ctxReinstall.classList.add("disabled");
+            ctxReinstall.title = !authToken ? "Login erforderlich" : "Addon ist nicht installiert";
+          }
+
+          // 3. Ignorieren (NUR wenn eingeloggt)
+          if (authToken) {
+            ctxIgnore.classList.remove("disabled");
+            ctxIgnoreLabel.textContent = ignored ? "Wieder verwalten" : "Ignorieren";
+            ctxIgnore.title = ignored ? "Ignorieren aufheben" : "Addon ignorieren (keine Auto-Updates)";
+          } else {
+            ctxIgnore.classList.add("disabled");
+            ctxIgnoreLabel.textContent = "Ignorieren";
+            ctxIgnore.title = "Login erforderlich";
+          }
+
+          // 4. Deinstallieren (wenn installiert & WoW-Pfad gewählt)
+          if (installed && wowPath) {
+            ctxDelete.classList.remove("disabled");
+            ctxDelete.title = `${addon.label} deinstallieren`;
+          } else {
+            ctxDelete.classList.add("disabled");
+            ctxDelete.title = "Addon ist nicht installiert";
+          }
+
+          // Position menu clamped to window boundaries (430x720)
+          contextMenu.style.display = "block";
+          const menuWidth = contextMenu.offsetWidth || 185;
+          const menuHeight = contextMenu.offsetHeight || 150;
+
+          let posX = me.clientX;
+          let posY = me.clientY;
+
+          if (posX + menuWidth > window.innerWidth - 8) {
+            posX = window.innerWidth - menuWidth - 8;
+          }
+          if (posY + menuHeight > window.innerHeight - 8) {
+            posY = window.innerHeight - menuHeight - 8;
+          }
+
+          contextMenu.style.left = `${Math.max(8, posX)}px`;
+          contextMenu.style.top = `${Math.max(8, posY)}px`;
+        });
+      });
     }
 
     /* ── Auth UI ──────────────────────── */
@@ -887,7 +979,62 @@ window.addEventListener("DOMContentLoaded", async () => {
     refreshBtn.addEventListener("click", checkUpdates);
     changePathBtn.addEventListener("click", selectPath);
     pathDisplay.addEventListener("click", selectPath);
-    openExplorerBtn.addEventListener("click", openExplorer);
+    openExplorerBtn.addEventListener("click", () => openExplorer());
+
+    /* ── Context Menu Actions ─────────── */
+    window.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+    });
+
+    window.addEventListener("click", hideContextMenu);
+    window.addEventListener("resize", hideContextMenu);
+    document.addEventListener("scroll", hideContextMenu, true);
+
+    ctxExplorer?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!activeContextAddon || ctxExplorer.classList.contains("disabled")) return;
+      const folder = activeContextAddon.folder;
+      hideContextMenu();
+      await openExplorer(folder);
+    });
+
+    ctxReinstall?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!activeContextAddon || ctxReinstall.classList.contains("disabled") || !authToken || !wowPath) return;
+      const targetAddon = activeContextAddon;
+      hideContextMenu();
+      statusArea.textContent = `Installiere ${targetAddon.label} neu...`;
+      try {
+        await invoke("install_addon", {
+          token: authToken,
+          repo: targetAddon.repo,
+          name: targetAddon.folder,
+          path: wowPath,
+          provider: targetAddon.provider,
+          directUrl: targetAddon.directUrl || null,
+        });
+        statusArea.textContent = `${targetAddon.label} erfolgreich neu installiert ✓`;
+        await checkUpdates();
+      } catch (err) {
+        statusArea.textContent = `Fehler: ${err}`;
+      }
+    });
+
+    ctxIgnore?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!activeContextAddon || ctxIgnore.classList.contains("disabled") || !authToken) return;
+      const id = activeContextAddon.id;
+      hideContextMenu();
+      toggleIgnoreAddon(id);
+    });
+
+    ctxDelete?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!activeContextAddon || ctxDelete.classList.contains("disabled")) return;
+      const targetAddon = activeContextAddon;
+      hideContextMenu();
+      await uninstallAddon(targetAddon);
+    });
 
     updateAllBtn.addEventListener("click", async () => {
       if (!authToken || !wowPath) return;
