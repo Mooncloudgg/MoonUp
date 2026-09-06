@@ -4,116 +4,172 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Moonup</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
-    <div class="app-container">
+    <div class="app-window">
 
-      <!-- ═══ TOP GROUP ═══ -->
-      <div class="top-group">
+      <!-- Header -->
+      <header class="app-header" data-tauri-drag-region>
+        <div class="brand" data-tauri-drag-region>
+          <img src="/src/assets/Moonup_logo.png" class="brand-logo" alt="" onerror="this.style.display='none'">
+          <span class="brand-title">Moonup</span>
+        </div>
 
-        <!-- Header -->
-        <header class="app-header">
-          <div class="branding">
-            <img src="/src/assets/Moonup_logo.png" class="app-logo" alt="" onerror="this.style.display='none'">
-            <span class="app-title">Moonup</span>
-            <span class="app-version-badge">v2.0</span>
-          </div>
-          <div class="header-actions">
-            <button id="refresh-btn" class="icon-btn" title="Prüfen">🔄</button>
-            <button id="open-settings-btn" class="icon-btn" title="Einstellungen">⚙️</button>
-          </div>
-        </header>
-
-        <!-- Auth -->
-        <div id="auth-section" class="auth-card">
+        <div class="header-actions">
+          <!-- Login View (when logged out) -->
           <div id="login-view">
-            <button id="login-btn" class="login-btn-discord">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.893.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
-              <span>Login mit Discord</span>
+            <button id="login-btn" class="btn-discord-header" title="Mit Discord anmelden">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.893.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+              <span>Login</span>
             </button>
-            <div id="login-status" style="font-size:0.72rem; color:var(--text-muted); text-align:center; margin-top:5px; display:none;"></div>
           </div>
-          <div id="user-view" class="user-bar" style="display:none;">
-            <div class="user-info">
-              <div id="user-avatar" class="user-avatar">M</div>
-              <div>
-                <span id="username-label" class="user-name">Mitglied</span>
-                <span class="user-status-dot"></span>
-              </div>
-            </div>
-            <button id="logout-btn" class="btn-logout">Abmelden</button>
+
+          <!-- User View (when logged in) -->
+          <div id="user-view" class="user-pill" style="display:none;" data-tauri-drag-region>
+            <div id="user-avatar" class="user-avatar" data-tauri-drag-region>M</div>
+            <span id="username-label" class="user-name" data-tauri-drag-region>Mitglied</span>
+            <div class="user-dot" data-tauri-drag-region></div>
+            <button id="logout-btn" class="btn-user-logout" title="Abmelden">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            </button>
+          </div>
+
+          <button id="refresh-btn" class="btn-icon-ghost" title="Addons prüfen">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          </button>
+
+          <button id="open-settings-btn" class="btn-icon-ghost" title="Einstellungen">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          </button>
+
+          <div class="header-divider"></div>
+
+          <div class="window-controls">
+            <button id="window-minimize-btn" class="btn-window-control" title="Minimieren">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="12" x2="20" y2="12"></line></svg>
+            </button>
+            <button id="window-close-btn" class="btn-window-control close" title="Schließen">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="6" y1="18" x2="18" y2="6"></line></svg>
+            </button>
           </div>
         </div>
+      </header>
 
-        <!-- Status -->
-        <div id="readiness-card" class="readiness-banner noauth">
-          <div class="readiness-dot"></div>
-          <div class="readiness-text">
-            <span id="readiness-title" class="readiness-title">Login erforderlich</span>
-            <span id="readiness-desc" class="readiness-desc">Bitte anmelden</span>
-          </div>
+      <!-- Login Waiting Status Banner -->
+      <div id="login-status" class="login-banner" style="display:none;"></div>
+
+      <!-- Path Bar -->
+      <div class="path-bar">
+        <div id="path-display" class="path-left" title="Klicken zum Auswählen">
+          <span class="path-flavor-tag">WoW</span>
+          <span class="path-text">WoW-Pfad auswählen...</span>
         </div>
-
-        <!-- Path -->
-        <div class="path-card">
-          <div class="path-row">
-            <div id="path-display" class="path-box" title="Klicken zum Auswählen">WoW-Pfad auswählen...</div>
-            <button id="change-path-btn" class="btn-path">Ändern</button>
-            <button id="open-explorer-btn" class="btn-path" title="In Explorer öffnen">📂</button>
-          </div>
+        <div class="path-actions">
+          <button id="open-explorer-btn" class="btn-path-tool" title="Im Explorer öffnen">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+          </button>
+          <button id="change-path-btn" class="btn-path-tool" title="Pfad ändern">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </button>
         </div>
       </div>
 
-      <!-- ═══ MAIN GROUP ═══ -->
-      <div class="main-group">
-        <div class="section-header">
-          <span class="section-label">Addons</span>
-          <span class="section-count">5 Addons</span>
+      <!-- Status Mini Bar -->
+      <div id="readiness-card" class="status-mini-bar noauth">
+        <div class="status-left-label">
+          <div class="indicator-circle"></div>
+          <span id="readiness-title">Login erforderlich</span>
         </div>
-        <div id="addon-list" class="addon-list">
-          <!-- Dynamically populated -->
-        </div>
+        <span id="readiness-desc" class="status-meta-text">Bitte anmelden</span>
       </div>
 
-      <!-- ═══ BOTTOM GROUP ═══ -->
-      <div class="bottom-group">
-        <button id="update-all-btn" class="btn-update-all" disabled>
+      <!-- Section Title -->
+      <div class="section-title-bar">
+        <span>Verwaltete Addons</span>
+        <span id="addon-count-label">5 Addons</span>
+      </div>
+
+      <!-- Addon List -->
+      <div id="addon-list" class="addon-scroll">
+        <!-- Dynamically populated -->
+      </div>
+
+      <!-- Bottom Controls -->
+      <div class="app-bottom">
+        <button id="update-all-btn" class="btn-big-update" disabled>
           <span>Alle aktualisieren</span>
         </button>
-        <div id="status-text" class="status-footer">Bereit.</div>
+
+        <div class="status-footer-bar">
+          <div class="status-left">
+            <div class="flat-dot"></div>
+            <span id="status-text">Bereit.</span>
+          </div>
+          <span id="bg-update-status-text">Addon-Auto-Update aktiv</span>
+        </div>
       </div>
 
     </div>
 
     <!-- Settings Modal -->
-    <div id="settings-modal" class="modal">
-      <div class="modal-content">
+    <div id="settings-modal" class="modal-backdrop">
+      <div class="modal-box">
         <div class="modal-header">
-          <h2>Einstellungen</h2>
-          <span id="close-settings-btn" class="modal-close">&times;</span>
+          <div class="modal-title">Einstellungen</div>
+          <button id="close-settings-btn" class="btn-icon-ghost" style="font-size: 1.2rem;">&times;</button>
         </div>
-        <div class="setting-row">
+
+        <div class="setting-item">
           <span>Mit Windows starten</span>
-          <input type="checkbox" id="autostart-cb">
+          <label class="switch">
+            <input type="checkbox" id="autostart-cb">
+            <span class="slider"></span>
+          </label>
         </div>
-        <div class="setting-row">
+
+        <div class="setting-item">
           <span>Beim Schließen minimieren (Tray)</span>
-          <input type="checkbox" id="close-to-tray-cb" checked>
+          <label class="switch">
+            <input type="checkbox" id="close-to-tray-cb" checked>
+            <span class="slider"></span>
+          </label>
         </div>
-        <div class="setting-row">
-          <span>Auto-Updates im Hintergrund</span>
-          <input type="checkbox" id="auto-bg-update-cb">
+
+        <div class="setting-item">
+          <span>Windows-Benachrichtigungen</span>
+          <label class="switch">
+            <input type="checkbox" id="notifications-cb" checked>
+            <span class="slider"></span>
+          </label>
         </div>
-        <div class="setting-row">
+
+        <div class="setting-item">
+          <span>Addons im Hintergrund aktualisieren</span>
+          <label class="switch">
+            <input type="checkbox" id="auto-bg-update-cb">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div id="auto-bg-sublist" class="auto-bg-sublist" style="display:none;"></div>
+        <div id="auto-bg-hint" class="auto-bg-hint" style="display:none;">
+          <span>💡 Sofern du die Auto-Updates aktivierst, während WoW bereits geöffnet ist, gib bitte <code>/reload</code> ein.</span>
+        </div>
+
+        <div class="setting-item">
           <span>Version</span>
           <div style="display:flex; align-items:center; gap:8px;">
-            <span id="app-version-label" style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-muted);">v2.0.9</span>
-            <button id="check-app-update-btn" class="btn-check-update" title="Nach Moonup-Updates suchen">Prüfen</button>
+            <span id="app-version-label" style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-muted);">v2.1.0</span>
+            <button id="check-app-update-btn" class="btn-ghost-small" title="Nach Moonup-Updates suchen">Prüfen</button>
           </div>
         </div>
-        <div class="danger-zone">
-          <button id="delete-all-addons-btn" class="btn-danger-outline">Alle Addons entfernen</button>
+
+        <div style="border-top:1px solid var(--border-subtle); padding-top:12px;">
+          <button id="delete-all-addons-btn" class="btn-danger-flat">Alle Addons entfernen</button>
         </div>
       </div>
     </div>
