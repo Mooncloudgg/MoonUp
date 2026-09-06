@@ -15,7 +15,19 @@ use tauri::{
 };
 use tauri_plugin_autostart::MacosLauncher;
 
+use std::sync::Mutex;
+use std::collections::HashMap;
+use std::time::{Instant, Duration};
+
 static CLOSE_TO_TRAY: AtomicBool = AtomicBool::new(true);
+
+struct GithubCacheEntry {
+    tag: String,
+    etag: Option<String>,
+    cached_at: Instant,
+}
+
+static GITHUB_RELEASE_CACHE: Mutex<Option<HashMap<String, GithubCacheEntry>>> = Mutex::new(None);
 
 const API_BASE: &str = "https://mooncloud.team";
 const APP_USER_AGENT: &str = "Moonup-App/2.0";
@@ -343,20 +355,64 @@ fn check_for_updates(token: String, repo: String, provider: Option<String>) -> R
     }
 
     if prov == "github" {
-        let url = format!("https://api.github.com/repos/{}/releases/latest", repo);
-        let res = client.get(&url)
-            .header(USER_AGENT, APP_USER_AGENT)
-            .send()
-            .map_err(|e| format!("Netzwerkfehler: {}", e))?;
+        // 1. Check in-memory cache (30 second fast cache against spamming)
+        let cached_etag = {
+            let mut cache_lock = GITHUB_RELEASE_CACHE.lock().unwrap();
+            let cache = cache_lock.get_or_insert_with(HashMap::new);
+            if let Some(entry) = cache.get(&repo) {
+                if entry.cached_at.elapsed() < Duration::from_secs(30) {
+                    return Ok(entry.tag.clone());
+                }
+                entry.etag.clone()
+            } else {
+                None
+            }
+        };
 
+        let url = format!("https://api.github.com/repos/{}/releases/latest", repo);
+        let mut req = client.get(&url).header(USER_AGENT, APP_USER_AGENT);
+        if let Some(etag) = &cached_etag {
+            req = req.header("If-None-Match", etag);
+        }
+
+        let res = req.send().map_err(|e| format!("Netzwerkfehler: {}", e))?;
         let status = res.status();
+
+        if status.as_u16() == 304 {
+            // Not Modified -> reuse cached tag and extend validity
+            let mut cache_lock = GITHUB_RELEASE_CACHE.lock().unwrap();
+            let cache = cache_lock.get_or_insert_with(HashMap::new);
+            if let Some(entry) = cache.get_mut(&repo) {
+                entry.cached_at = Instant::now();
+                return Ok(entry.tag.clone());
+            }
+        }
+
         if status.is_success() {
+            let new_etag = res.headers().get("etag").and_then(|h| h.to_str().ok()).map(|s| s.to_string());
             let json: serde_json::Value = res.json().map_err(|e| e.to_string())?;
             let tag = json["tag_name"].as_str().unwrap_or("").to_string();
             if !tag.is_empty() {
+                let mut cache_lock = GITHUB_RELEASE_CACHE.lock().unwrap();
+                let cache = cache_lock.get_or_insert_with(HashMap::new);
+                cache.insert(repo.clone(), GithubCacheEntry {
+                    tag: tag.clone(),
+                    etag: new_etag,
+                    cached_at: Instant::now(),
+                });
                 return Ok(tag);
             }
         }
+
+        // Fallback: If GitHub rate limited (403), return cached version if available
+        if status.as_u16() == 403 {
+            let mut cache_lock = GITHUB_RELEASE_CACHE.lock().unwrap();
+            let cache = cache_lock.get_or_insert_with(HashMap::new);
+            if let Some(entry) = cache.get(&repo) {
+                return Ok(entry.tag.clone());
+            }
+        }
+
         return Err(format!("GitHub Fehler: Status {}", status));
     }
 
@@ -521,12 +577,46 @@ fn install_addon(token: String, repo: String, _name: String, path: String, provi
     let reader = std::io::Cursor::new(bytes);
     let mut zip = zip::ZipArchive::new(reader).map_err(|e| format!("ZIP-Archiv beschädigt: {}", e))?;
 
+    // Canonicalize addon_dir for rock-solid boundary check
+    let canonical_addon_dir = addon_dir.canonicalize().unwrap_or_else(|_| addon_dir.clone());
+
     for i in 0..zip.len() {
         let mut file = zip.by_index(i).map_err(|e| e.to_string())?;
-        let outpath = match file.enclosed_name() {
-            Some(path) => addon_dir.join(path),
-            None => continue, 
+
+        // 1. Skip unix symlinks
+        #[cfg(unix)]
+        if let Some(mode) = file.unix_mode() {
+            if (mode & 0o170000) == 0o120000 {
+                continue; // Skip symlink
+            }
+        }
+
+        // 2. Strict Zip-Slip Prevention
+        let enclosed = match file.enclosed_name() {
+            Some(path) => path.to_owned(),
+            None => continue, // Reject any path containing .. or root components
         };
+
+        let outpath = addon_dir.join(&enclosed);
+
+        // Verify that the resulting target is strictly inside addon_dir
+        if let Ok(normalized) = outpath.canonicalize() {
+            if !normalized.starts_with(&canonical_addon_dir) {
+                return Err("Sicherheitsfehler: Ungültiger Dateipfad im Archiv (Zip-Slip)".to_string());
+            }
+        } else {
+            // Path doesn't exist yet: check its ancestors
+            let mut check_ancestor = outpath.as_path();
+            while let Some(parent) = check_ancestor.parent() {
+                if let Ok(canon_parent) = parent.canonicalize() {
+                    if !canon_parent.starts_with(&canonical_addon_dir) {
+                        return Err("Sicherheitsfehler: Zielverzeichnis außerhalb des Addon-Ordners".to_string());
+                    }
+                    break;
+                }
+                check_ancestor = parent;
+            }
+        }
 
         if file.name().ends_with('/') { 
             fs::create_dir_all(&outpath).map_err(|e| e.to_string())?; 
