@@ -181,6 +181,11 @@ window.addEventListener("DOMContentLoaded", async () => {
     const appUpdatePill      = document.getElementById("app-update-pill") as HTMLButtonElement;
     const appUpdatePillText  = document.getElementById("app-update-pill-text") as HTMLSpanElement;
 
+    // Settings Update Banner
+    const settingsUpdateBanner     = document.getElementById("settings-update-banner") as HTMLDivElement;
+    const settingsUpdateBannerText = document.getElementById("settings-update-banner-text") as HTMLSpanElement;
+    const settingsInstallUpdateBtn = document.getElementById("settings-install-update-btn") as HTMLButtonElement;
+
     // Context Menu DOM
     const contextMenu    = document.getElementById("addon-context-menu") as HTMLDivElement;
     const ctxExplorer    = document.getElementById("ctx-explorer") as HTMLDivElement;
@@ -506,12 +511,12 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (checkAppUpdateBtn) {
       checkAppUpdateBtn.addEventListener("click", async () => {
         checkAppUpdateBtn.disabled = true;
-        const origText = checkAppUpdateBtn.textContent || "Prüfen";
+        const origText = "Prüfen";
         checkAppUpdateBtn.textContent = "...";
         try {
           const update = await checkForAppUpdates(true);
           if (update) {
-            checkAppUpdateBtn.textContent = `v${update.version} bereit!`;
+            checkAppUpdateBtn.textContent = "Gefunden!";
           } else {
             checkAppUpdateBtn.textContent = "Aktuell ✓";
           }
@@ -609,21 +614,29 @@ window.addEventListener("DOMContentLoaded", async () => {
       }, 2000);
     }
 
-    /* ── App Updater (Pill Notification & User-Triggered Install) ── */
+    /* ── App Updater (Pill, Settings Banner & User-Triggered Install) ── */
 
     let pendingAppUpdate: Update | null = null;
     let isInstallingAppUpdate = false;
+    let isUpdateDownloaded = false;
 
-    if (appUpdatePill) {
-      appUpdatePill.addEventListener("click", async () => {
-        if (isInstallingAppUpdate || !pendingAppUpdate) return;
+    async function triggerAppUpdate() {
+      if (isInstallingAppUpdate || !pendingAppUpdate) return;
 
-        isInstallingAppUpdate = true;
-        appUpdatePill.disabled = true;
-        if (appUpdatePillText) appUpdatePillText.textContent = "Lade 0%...";
+      isInstallingAppUpdate = true;
+      if (appUpdatePill) appUpdatePill.disabled = true;
+      if (settingsInstallUpdateBtn) settingsInstallUpdateBtn.disabled = true;
 
-        const updateToInstall = pendingAppUpdate;
-        try {
+      const setBtnText = (txt: string) => {
+        if (appUpdatePillText) appUpdatePillText.textContent = txt;
+        if (settingsInstallUpdateBtn) settingsInstallUpdateBtn.textContent = txt;
+      };
+
+      const updateToInstall = pendingAppUpdate;
+
+      try {
+        if (!isUpdateDownloaded) {
+          setBtnText("Lade 0%...");
           let downloaded = 0;
           let contentLength = 0;
 
@@ -631,35 +644,47 @@ window.addEventListener("DOMContentLoaded", async () => {
             switch (event.event) {
               case 'Started':
                 contentLength = event.data.contentLength || 0;
-                if (appUpdatePillText) appUpdatePillText.textContent = "Lade 0%...";
+                setBtnText("Lade 0%...");
                 break;
               case 'Progress':
                 downloaded += event.data.chunkLength;
-                if (contentLength > 0 && appUpdatePillText) {
+                if (contentLength > 0) {
                   const pct = Math.round((downloaded / contentLength) * 100);
-                  appUpdatePillText.textContent = `Lade ${pct}%...`;
+                  setBtnText(`Lade ${pct}%...`);
                 }
                 break;
               case 'Finished':
-                if (appUpdatePillText) appUpdatePillText.textContent = "Neustart...";
+                setBtnText("Neustart...");
                 break;
             }
           });
-
-          if (appUpdatePillText) appUpdatePillText.textContent = "Neustart...";
-          await relaunch();
-        } catch (err) {
-          console.error("Update Installation fehlgeschlagen:", err);
-          if (appUpdatePillText) appUpdatePillText.textContent = "Fehler";
-          appUpdatePill.disabled = false;
-          isInstallingAppUpdate = false;
-          setTimeout(() => {
-            if (appUpdatePillText && pendingAppUpdate) {
-              appUpdatePillText.textContent = `v${pendingAppUpdate.version} bereit`;
-            }
-          }, 3000);
+        } else {
+          setBtnText("Installiere...");
+          await updateToInstall.install();
         }
-      });
+
+        setBtnText("Neustart...");
+        await relaunch();
+      } catch (err) {
+        console.error("Update Installation fehlgeschlagen:", err);
+        setBtnText("Fehler");
+        if (appUpdatePill) appUpdatePill.disabled = false;
+        if (settingsInstallUpdateBtn) settingsInstallUpdateBtn.disabled = false;
+        isInstallingAppUpdate = false;
+        setTimeout(() => {
+          if (pendingAppUpdate) {
+            if (appUpdatePillText) appUpdatePillText.textContent = `v${pendingAppUpdate.version} bereit`;
+            if (settingsInstallUpdateBtn) settingsInstallUpdateBtn.textContent = isUpdateDownloaded ? "Jetzt neu starten" : "Jetzt aktualisieren";
+          }
+        }, 3000);
+      }
+    }
+
+    if (appUpdatePill) {
+      appUpdatePill.addEventListener("click", triggerAppUpdate);
+    }
+    if (settingsInstallUpdateBtn) {
+      settingsInstallUpdateBtn.addEventListener("click", triggerAppUpdate);
     }
 
     async function checkForAppUpdates(manual = false): Promise<Update | null> {
@@ -677,22 +702,49 @@ window.addEventListener("DOMContentLoaded", async () => {
           if (appUpdatePill && appUpdatePillText) {
             appUpdatePill.style.display = "flex";
             appUpdatePill.disabled = false;
-            appUpdatePillText.textContent = `v${newVer} bereit`;
+            appUpdatePillText.textContent = isUpdateDownloaded ? `v${newVer} • Neustart` : `v${newVer} bereit`;
             appUpdatePill.title = `Moonup v${newVer} verfügbar. Klicken zum Aktualisieren & Neustarten!`;
+          }
+
+          if (settingsUpdateBanner && settingsUpdateBannerText && settingsInstallUpdateBtn) {
+            settingsUpdateBanner.style.display = "flex";
+            settingsUpdateBannerText.textContent = `v${newVer} verfügbar`;
+            settingsInstallUpdateBtn.disabled = false;
+            settingsInstallUpdateBtn.textContent = isUpdateDownloaded ? "Jetzt neu starten" : "Jetzt aktualisieren";
           }
 
           if (notifiedAppUpdate !== newVer) {
             notifiedAppUpdate = newVer;
             await notifyUser(
               "Moonup • Update verfügbar",
-              `Moonup v${newVer} steht bereit. Klicke im Header auf "v${newVer} bereit" zum Aktualisieren.`
+              `Moonup v${newVer} steht bereit. Klicke auf "Jetzt aktualisieren" zum Installieren.`
             );
           }
+
+          // Im Hintergrund geräuschlos vorab herunterladen (ohne Installer auszuführen)
+          if (!isUpdateDownloaded) {
+            update.download().then(() => {
+              isUpdateDownloaded = true;
+              if (appUpdatePillText && !isInstallingAppUpdate) {
+                appUpdatePillText.textContent = `v${newVer} • Neustart`;
+              }
+              if (settingsInstallUpdateBtn && !isInstallingAppUpdate) {
+                settingsInstallUpdateBtn.textContent = "Jetzt neu starten";
+              }
+            }).catch(err => {
+              console.warn("Background pre-download note:", err);
+            });
+          }
+
           return update;
         } else {
           pendingAppUpdate = null;
+          isUpdateDownloaded = false;
           if (appUpdatePill) {
             appUpdatePill.style.display = "none";
+          }
+          if (settingsUpdateBanner) {
+            settingsUpdateBanner.style.display = "none";
           }
           return null;
         }
@@ -700,6 +752,9 @@ window.addEventListener("DOMContentLoaded", async () => {
         console.error("App Update Check fehlgeschlagen:", err);
         if (appUpdatePill && !pendingAppUpdate) {
           appUpdatePill.style.display = "none";
+        }
+        if (settingsUpdateBanner && !pendingAppUpdate) {
+          settingsUpdateBanner.style.display = "none";
         }
         return null;
       }

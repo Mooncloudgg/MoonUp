@@ -178,9 +178,18 @@
         <div class="setting-item">
           <span>Version</span>
           <div style="display:flex; align-items:center; gap:8px;">
-            <span id="app-version-label" style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-muted);">v2.1.5</span>
+            <span id="app-version-label" style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-muted);">v2.1.6</span>
             <button id="check-app-update-btn" class="btn-ghost-small" title="Nach Moonup-Updates suchen">Prüfen</button>
           </div>
+        </div>
+
+        <!-- In-Settings App Update Banner -->
+        <div id="settings-update-banner" class="settings-update-banner" style="display:none;">
+          <div class="settings-update-banner-info">
+            <span class="update-pulse"></span>
+            <span id="settings-update-banner-text">v... verfügbar</span>
+          </div>
+          <button id="settings-install-update-btn" class="btn-install-app-update">Jetzt aktualisieren</button>
         </div>
 
         <div class="setting-backup-section">

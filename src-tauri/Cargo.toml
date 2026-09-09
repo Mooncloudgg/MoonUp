@@ -1,6 +1,6 @@
 [package]
 name = "moonup"
-version = "2.1.5"
+version = "2.1.6"
 description = "A lightweight WoW Addon Manager"
 authors = ["you"]
 edition = "2021"
