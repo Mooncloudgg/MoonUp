@@ -29,13 +29,6 @@ struct GithubCacheEntry {
 
 static GITHUB_RELEASE_CACHE: Mutex<Option<HashMap<String, GithubCacheEntry>>> = Mutex::new(None);
 
-struct LocalVersionCacheEntry {
-    version: String,
-    mtime: std::time::SystemTime,
-}
-
-static LOCAL_VERSION_CACHE: Mutex<Option<HashMap<String, LocalVersionCacheEntry>>> = Mutex::new(None);
-
 const API_BASE: &str = "https://mooncloud.team";
 const APP_USER_AGENT: &str = "Moonup-App/2.0";
 const CF_API_KEY: &str = "$2a$10$bL4bIL5pUWqfcO7KQtnMReakwtfHbNKh6v1uTpKlzhwoueEJQnPnm";
@@ -225,34 +218,39 @@ fn get_installed_version(path: String, folder: String, _search: String) -> Strin
         return "Nicht installiert".to_string(); 
     }
 
-    // Check modification time of folder or primary files to avoid unnecessary disk parsing
-    let current_mtime = fs::metadata(&full_addon_path)
-        .and_then(|m| m.modified())
-        .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
-
-    let cache_key = full_addon_path.to_string_lossy().to_string();
-    {
-        let mut lock = LOCAL_VERSION_CACHE.lock().unwrap();
-        let cache = lock.get_or_insert_with(HashMap::new);
-        if let Some(entry) = cache.get(&cache_key) {
-            if entry.mtime == current_mtime {
-                return entry.version.clone();
-            }
-        }
-    }
-    
     // 1. VERSUCH: TOC Parsing (Primary for WoW Addons)
     let toc_names = [
         format!("{}.toc", folder),
         format!("{}_Mainline.toc", folder),
         format!("{}-Mainline.toc", folder),
     ];
-    let parsed_ver = (|| {
-        // 1. VERSUCH: TOC Parsing (Primary for WoW Addons)
-        for toc_name in &toc_names {
-            let toc_path = full_addon_path.join(toc_name);
-            if toc_path.exists() {
-                if let Ok(content) = fs::read_to_string(&toc_path) {
+    for toc_name in &toc_names {
+        let toc_path = full_addon_path.join(toc_name);
+        if toc_path.exists() {
+            if let Ok(content) = fs::read_to_string(&toc_path) {
+                for line in content.lines() {
+                    let trimmed = line.trim();
+                    let lower = trimmed.to_lowercase();
+                    if lower.starts_with("##") && lower.contains("version") {
+                        if let Some(idx) = trimmed.find(':') {
+                            let raw_ver = &trimmed[idx+1..];
+                            let clean = clean_wow_string(raw_ver);
+                            if !clean.is_empty() { 
+                                return clean; 
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Scan any .toc file in folder if specific name wasn't found
+    if let Ok(entries) = fs::read_dir(&full_addon_path) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_file() && p.extension().map_or(false, |ext| ext == "toc") {
+                if let Ok(content) = fs::read_to_string(&p) {
                     for line in content.lines() {
                         let trimmed = line.trim();
                         let lower = trimmed.to_lowercase();
@@ -269,72 +267,37 @@ fn get_installed_version(path: String, folder: String, _search: String) -> Strin
                 }
             }
         }
-
-        // Scan any .toc file in folder if specific name wasn't found
-        if let Ok(entries) = fs::read_dir(&full_addon_path) {
-            for entry in entries.flatten() {
-                let p = entry.path();
-                if p.is_file() && p.extension().map_or(false, |ext| ext == "toc") {
-                    if let Ok(content) = fs::read_to_string(&p) {
-                        for line in content.lines() {
-                            let trimmed = line.trim();
-                            let lower = trimmed.to_lowercase();
-                            if lower.starts_with("##") && lower.contains("version") {
-                                if let Some(idx) = trimmed.find(':') {
-                                    let raw_ver = &trimmed[idx+1..];
-                                    let clean = clean_wow_string(raw_ver);
-                                    if !clean.is_empty() { 
-                                        return clean; 
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // 2. VERSUCH: Changelog / Readme Parsing
-        let md_names = ["CHANGELOG.md", "Changelog.md", "changelog.md", "README.md", "Readme.md"];
-        
-        for md_name in md_names {
-            let md_path = full_addon_path.join(md_name);
-            if md_path.exists() {
-                if let Ok(content) = fs::read_to_string(&md_path) {
-                    for line in content.lines() {
-                        let trimmed = line.trim();
-                        if trimmed.starts_with("##") && trimmed.contains('[') {
-                            if let (Some(start), Some(end)) = (trimmed.find('['), trimmed.find(']')) {
-                                if end > start {
-                                    let ver_candidate = &trimmed[start+1..end];
-                                    if ver_candidate.starts_with('v') || ver_candidate.starts_with('V') || ver_candidate.chars().any(|c| c.is_numeric()) {
-                                        return ver_candidate.to_string();
-                                    }
-                                }
-                            }
-                        }
-                        if trimmed.starts_with("# v") || trimmed.starts_with("# V") {
-                             let clean = trimmed.trim_matches('#').trim();
-                             if clean.len() < 15 { return clean.to_string(); }
-                        }
-                    }
-                }
-            }
-        }
-
-        "Unbekannt".to_string()
-    })();
-
-    {
-        let mut lock = LOCAL_VERSION_CACHE.lock().unwrap();
-        let cache = lock.get_or_insert_with(HashMap::new);
-        cache.insert(cache_key, LocalVersionCacheEntry {
-            version: parsed_ver.clone(),
-            mtime: current_mtime,
-        });
     }
 
-    parsed_ver
+    // 2. VERSUCH: Changelog / Readme Parsing
+    let md_names = ["CHANGELOG.md", "Changelog.md", "changelog.md", "README.md", "Readme.md"];
+    
+    for md_name in md_names {
+        let md_path = full_addon_path.join(md_name);
+        if md_path.exists() {
+            if let Ok(content) = fs::read_to_string(&md_path) {
+                for line in content.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with("##") && trimmed.contains('[') {
+                        if let (Some(start), Some(end)) = (trimmed.find('['), trimmed.find(']')) {
+                            if end > start {
+                                let ver_candidate = &trimmed[start+1..end];
+                                if ver_candidate.starts_with('v') || ver_candidate.starts_with('V') || ver_candidate.chars().any(|c| c.is_numeric()) {
+                                    return ver_candidate.to_string();
+                                }
+                            }
+                        }
+                    }
+                    if trimmed.starts_with("# v") || trimmed.starts_with("# V") {
+                         let clean = trimmed.trim_matches('#').trim();
+                         if clean.len() < 15 { return clean.to_string(); }
+                    }
+                }
+            }
+        }
+    }
+
+    "Unbekannt".to_string()
 }
 
 #[tauri::command]

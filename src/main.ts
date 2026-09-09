@@ -855,6 +855,10 @@ window.addEventListener("DOMContentLoaded", async () => {
           const remote = localStorage.getItem(`latest_${addon.folder}`);
           const installed = local && !["Nicht installiert", "Unbekannt", "-"].includes(local);
           if (installed && remote && isNewerVersion(local, remote)) {
+            const card = addonList.querySelector(`.addon-card[data-id="${addon.id}"]`) as HTMLElement | null;
+            card?.classList.add("is-updating");
+            statusArea.textContent = `Auto-Update: ${addon.label}...`;
+
             try {
               console.log(`[AutoUpdate] Starting background update for ${addon.label}...`);
               await invoke("install_addon", {
@@ -887,10 +891,13 @@ window.addEventListener("DOMContentLoaded", async () => {
               // Fall 2: Auto Update aktiv & WoW läuft NICHT -> Kein Hinweis (stilles Update!)
             } catch (err) {
               console.warn(`[AutoUpdate] Background update for ${addon.label} failed:`, err);
+            } finally {
+              card?.classList.remove("is-updating");
             }
           }
         }
         if (anyUpdated) {
+          statusArea.textContent = TEXTS.status.done;
           renderAddons();
         }
       }
