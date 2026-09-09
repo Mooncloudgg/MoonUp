@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { open, ask, message } from "@tauri-apps/plugin-dialog";
+import { open, save, ask, message } from "@tauri-apps/plugin-dialog";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
 import { TEXTS, ADDONS, API_CONFIG, AddonItem } from "./config";
@@ -8,8 +8,47 @@ import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { sendNotification, isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import { v4 as uuidv4 } from "uuid";
+// @ts-ignore
+import moonupLogoUrl from "./assets/Moonup_logo.png";
+// @ts-ignore
+import timelineLogoUrl from "./assets/timeline_reminders.png";
+
+/* ── Self-Healing Icon Handler ────────── */
+(window as any).healAddonIcon = async (addonId: string, repo: string, imgEl: HTMLImageElement, fallbackInitials: string) => {
+  if (imgEl.dataset.healingAttempted) {
+    imgEl.outerHTML = `<div class="addon-logo">${fallbackInitials || "?"}</div>`;
+    return;
+  }
+  imgEl.dataset.healingAttempted = "true";
+
+  const addon = ADDONS.find(a => a.id === addonId);
+  if (!addon || addon.provider !== "curseforge") {
+    imgEl.outerHTML = `<div class="addon-logo">${fallbackInitials || "?"}</div>`;
+    return;
+  }
+
+  try {
+    console.log(`[SelfHealing] Attempting to heal icon for ${addonId} (repo: ${repo})...`);
+    const res = await fetch(`https://api.curse.tools/v1/cf/mods/${repo}`);
+    if (res.ok) {
+      const data = await res.json();
+      const newUrl = data?.data?.logo?.thumbnailUrl || data?.data?.logo?.url;
+      if (newUrl) {
+        console.log(`[SelfHealing] Healed icon for ${addonId}: ${newUrl}`);
+        localStorage.setItem(`healed_icon_${addonId}`, newUrl);
+        imgEl.src = newUrl;
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn(`[SelfHealing] Failed to resolve icon for ${addonId}:`, e);
+  }
+
+  imgEl.outerHTML = `<div class="addon-logo">${fallbackInitials || "?"}</div>`;
+};
 
 /* ── Helpers ──────────────────────────── */
+
 
 interface VerifyResult {
   valid: boolean;
@@ -41,6 +80,35 @@ function isNewerVersion(local: string, remote: string): boolean {
     if ((rp[i] || 0) < (lp[i] || 0)) return false;
   }
   return false;
+}
+
+function formatLastUpdated(timestampStr: string | null): string {
+  if (!timestampStr) return "";
+  const ts = parseInt(timestampStr, 10);
+  if (isNaN(ts) || ts <= 0) return "";
+
+  const date = new Date(ts);
+  const now = new Date();
+
+  const isToday = date.toDateString() === now.toDateString();
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const timeStr = `${hours}:${minutes} Uhr`;
+
+  if (isToday) {
+    return `Heute, ${timeStr}`;
+  } else if (isYesterday) {
+    return `Gestern, ${timeStr}`;
+  } else {
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    return `${day}.${month}.${date.getFullYear()}`;
+  }
 }
 
 /* ── App Init ─────────────────────────── */
@@ -105,6 +173,9 @@ window.addEventListener("DOMContentLoaded", async () => {
     const windowMinimizeBtn  = document.getElementById("window-minimize-btn") as HTMLButtonElement;
     const windowCloseBtn     = document.getElementById("window-close-btn") as HTMLButtonElement;
     const notificationsCb   = document.getElementById("notifications-cb") as HTMLInputElement;
+    const startMinimizedItem = document.getElementById("start-minimized-item") as HTMLDivElement;
+    const startMinimizedCb   = document.getElementById("start-minimized-cb") as HTMLInputElement;
+    const exportBackupBtn    = document.getElementById("export-backup-btn") as HTMLButtonElement;
 
     // Header In-App Update Pill
     const appUpdatePill      = document.getElementById("app-update-pill") as HTMLButtonElement;
@@ -132,6 +203,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     let authUser   = localStorage.getItem("moonup_auth_user") || "";
     let autoBgUpdate = localStorage.getItem("moonup_auto_bg_update") !== "false";
     let closeToTray  = localStorage.getItem("moonup_close_to_tray") !== "false";
+    let startMinimized = localStorage.getItem("moonup_start_minimized") !== "false";
     let notificationsEnabled = localStorage.getItem("moonup_notifications_enabled") !== "false";
     let loginPoll: number | null = null;
     let isChecking = false;
@@ -279,11 +351,35 @@ window.addEventListener("DOMContentLoaded", async () => {
   closeSettingsBtn.addEventListener("click", () => { settingsModal.style.display = "none"; });
   window.addEventListener("click", e => { if (e.target === settingsModal) settingsModal.style.display = "none"; });
 
-  try { autostartCb.checked = await isEnabled(); } catch (_) {}
+  const updateAutostartSublist = () => {
+    if (startMinimizedItem) {
+      startMinimizedItem.style.display = autostartCb.checked ? "flex" : "none";
+    }
+  };
+
+  try {
+    autostartCb.checked = await isEnabled();
+    updateAutostartSublist();
+  } catch (_) {}
+
   autostartCb.addEventListener("change", async () => {
-    try { if (autostartCb.checked) await enable(); else await disable(); }
-    catch (e) { autostartCb.checked = !autostartCb.checked; alert("Autostart-Fehler: " + e); }
+    try {
+      if (autostartCb.checked) await enable(); else await disable();
+      updateAutostartSublist();
+    } catch (e) {
+      autostartCb.checked = !autostartCb.checked;
+      alert("Autostart-Fehler: " + e);
+      updateAutostartSublist();
+    }
   });
+
+  if (startMinimizedCb) {
+    startMinimizedCb.checked = startMinimized;
+    startMinimizedCb.addEventListener("change", () => {
+      startMinimized = startMinimizedCb.checked;
+      localStorage.setItem("moonup_start_minimized", String(startMinimized));
+    });
+  }
 
   closeToTrayCb.checked = closeToTray;
   closeToTrayCb.addEventListener("change", async () => {
@@ -295,6 +391,92 @@ window.addEventListener("DOMContentLoaded", async () => {
       console.error("Set close to tray error:", err);
     }
   });
+
+  if (exportBackupBtn) {
+    exportBackupBtn.addEventListener("click", async () => {
+      if (!wowPath) {
+        await message("Bitte wähle zuerst deinen WoW-Pfad aus.", { title: "Moonup", kind: "warning" });
+        return;
+      }
+
+    function showWowRunningDialog(): Promise<boolean> {
+      return new Promise((resolve) => {
+        const modal = document.getElementById("wow-running-modal");
+        const cancelBtn = document.getElementById("wow-running-cancel");
+        const proceedBtn = document.getElementById("wow-running-proceed");
+        if (!modal || !cancelBtn || !proceedBtn) {
+          resolve(true);
+          return;
+        }
+
+        modal.style.display = "flex";
+
+        const cleanup = (result: boolean) => {
+          modal.style.display = "none";
+          cancelBtn.removeEventListener("click", onCancel);
+          proceedBtn.removeEventListener("click", onProceed);
+          modal.removeEventListener("click", onBackdrop);
+          resolve(result);
+        };
+
+        const onCancel = () => cleanup(false);
+        const onProceed = () => cleanup(true);
+        const onBackdrop = (e: MouseEvent) => {
+          if (e.target === modal) cleanup(false);
+        };
+
+        cancelBtn.addEventListener("click", onCancel);
+        proceedBtn.addEventListener("click", onProceed);
+        modal.addEventListener("click", onBackdrop);
+      });
+    }
+
+    // Prüfen, ob WoW noch läuft (Warnung vor ungespeicherten SavedVariables im App-Design)
+    try {
+      const isWoW = await invoke<boolean>("is_wow_running");
+      if (isWoW) {
+        const proceed = await showWowRunningDialog();
+        if (!proceed) return;
+      }
+    } catch (e) {
+      console.warn("is_wow_running check failed:", e);
+    }
+
+
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const defaultName = `Moonup_WoW_Backup_${dateStr}.zip`;
+
+      try {
+        const filePath = await save({
+          title: "WoW Interface & WTF Backup speichern",
+          defaultPath: defaultName,
+          filters: [{ name: "ZIP-Archiv", extensions: ["zip"] }]
+        });
+
+        if (!filePath) return;
+
+        exportBackupBtn.disabled = true;
+        exportBackupBtn.textContent = "Erstelle ZIP...";
+        statusArea.textContent = "Erstelle Backup von Interface und WTF...";
+
+        const bytes: number = await invoke("export_wow_backup", {
+          wowPath: wowPath,
+          targetZipPath: filePath
+        });
+        const mb = (bytes / (1024 * 1024)).toFixed(1);
+        statusArea.textContent = `Backup erfolgreich erstellt (${mb} MB) ✓`;
+        await message(`Backup erfolgreich gespeichert!\n\nDatei: ${filePath}\nGröße: ${mb} MB`, { title: "Moonup Backup", kind: "info" });
+      } catch (err: any) {
+        console.error("Backup Fehler:", err);
+        await message("Fehler beim Erstellen des Backups: " + err, { title: "Moonup Backup Fehler", kind: "error" });
+        statusArea.textContent = "Backup fehlgeschlagen.";
+      } finally {
+        exportBackupBtn.disabled = false;
+        exportBackupBtn.textContent = "Exportieren";
+      }
+    });
+  }
+
 
   if (notificationsCb) {
     notificationsCb.checked = notificationsEnabled;
@@ -581,20 +763,30 @@ window.addEventListener("DOMContentLoaded", async () => {
     /* ── Update Check ─────────────────── */
 
     let updateTimer: number | null = null;
+    let appUpdateCounter = 0;
     function resetAutoUpdateTimer() {
       if (updateTimer) window.clearInterval(updateTimer);
       updateTimer = window.setInterval(() => {
         if (!isChecking && wowPath) {
           checkUpdates();
         }
-      }, 3 * 60 * 1000); // Alle 3 Minuten prüfen
+        // Alle ~30 Minuten (alle 15 Zyklen à 2 Min) auch Moonup selbst im Hintergrund prüfen
+        appUpdateCounter++;
+        if (appUpdateCounter >= 15) {
+          appUpdateCounter = 0;
+          checkForAppUpdates(false);
+        }
+      }, 2 * 60 * 1000); // Alle 2 Minuten prüfen (Schnell & Ressourcen-schonend)
     }
+
 
     async function checkUpdates() {
       if (isChecking || !wowPath) return;
       isChecking = true;
       statusArea.textContent = TEXTS.status.searching;
       resetAutoUpdateTimer();
+
+      let hasAnyVersionChanged = false;
 
       try {
         await Promise.all(ADDONS.map(async (addon) => {
@@ -603,6 +795,10 @@ window.addEventListener("DOMContentLoaded", async () => {
             const localVer: string = await invoke("get_installed_version", {
               path: wowPath, folder: addon.folder, search: addon.search,
             });
+            const prevLocal = localStorage.getItem(`version_${addon.folder}`);
+            if (prevLocal !== String(localVer)) {
+              hasAnyVersionChanged = true;
+            }
             localStorage.setItem(`version_${addon.folder}`, String(localVer));
 
             // Nur wenn eingeloggt remote nach Updates suchen
@@ -612,6 +808,10 @@ window.addEventListener("DOMContentLoaded", async () => {
               });
 
               if (remoteVer === "AUTH_ERROR") throw new Error("AUTH_ERROR");
+              const prevRemote = localStorage.getItem(`latest_${addon.folder}`);
+              if (prevRemote !== remoteVer) {
+                hasAnyVersionChanged = true;
+              }
               localStorage.setItem(`latest_${addon.folder}`, remoteVer);
             }
           } catch (e: any) {
@@ -631,7 +831,11 @@ window.addEventListener("DOMContentLoaded", async () => {
 
       isChecking = false;
       statusArea.textContent = TEXTS.status.ready;
-      renderAddons();
+
+      // DOM nur neu aufbauen, wenn sich tatsächlich ein Versionsstand geändert hat (0% CPU Idle)
+      if (hasAnyVersionChanged || !addonList.hasChildNodes()) {
+        renderAddons();
+      }
 
       // 1. Silent background auto-update für ausgewählte Addons (nur wenn eingeloggt)
       if (autoBgUpdate && authToken && wowPath) {
@@ -658,6 +862,7 @@ window.addEventListener("DOMContentLoaded", async () => {
                 search: addon.search,
               });
               localStorage.setItem(`version_${addon.folder}`, String(newLocal));
+              localStorage.setItem(`updated_at_${addon.folder}`, String(Date.now()));
               console.log(`[AutoUpdate] ${addon.label} updated to ${newLocal}`);
               anyUpdated = true;
 
@@ -730,12 +935,15 @@ window.addEventListener("DOMContentLoaded", async () => {
       btn.disabled = true;
       btn.innerHTML = `<span class="loader"></span>`;
       statusArea.textContent = `${TEXTS.status.installing}${addon.label}`;
+      const card = btn.closest(".addon-card") as HTMLElement | null;
+      card?.classList.add("is-updating");
 
       try {
         await invoke("install_addon", {
           token: authToken, repo: addon.repo, name: addon.folder,
           path: wowPath, provider: addon.provider, directUrl: addon.directUrl || null,
         });
+        localStorage.setItem(`updated_at_${addon.folder}`, String(Date.now()));
         statusArea.textContent = `${addon.label} ${TEXTS.status.done}`;
         await checkUpdates();
       } catch (e: any) {
@@ -744,8 +952,11 @@ window.addEventListener("DOMContentLoaded", async () => {
         btn.disabled = false;
         btn.innerHTML = origHtml;
         statusArea.textContent = TEXTS.status.checkError;
+      } finally {
+        card?.classList.remove("is-updating");
       }
     }
+
 
     /* ── Uninstall (Funktioniert auch ohne Auth/Logged out!) ── */
 
@@ -755,6 +966,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         try {
           await invoke("uninstall_addon", { path: wowPath, name: addon.folder });
           localStorage.setItem(`version_${addon.folder}`, "Nicht installiert");
+          localStorage.removeItem(`updated_at_${addon.folder}`);
           statusArea.textContent = `${addon.label} ${TEXTS.status.deleted}`;
           renderAddons();
         } catch (e) { alert("Fehler: " + e); }
@@ -807,10 +1019,19 @@ window.addEventListener("DOMContentLoaded", async () => {
           versionHtml = `<span class="v-cur">${local}</span>`;
         }
 
-        // Icon with fallback
-        const icon = addon.icon
-          ? `<img src="${addon.icon}" class="addon-logo-img" alt="" onerror="this.outerHTML='<div class=\\'addon-logo\\'>${addon.fallbackInitials || "?"}</div>'">`
+        // Icon with fallback & self-healing
+        const healed = localStorage.getItem(`healed_icon_${addon.id}`);
+        let iconSrc = healed || addon.icon;
+        if (addon.id === "mooncloud-tools" || addon.icon === "/src/assets/Moonup_logo.png") {
+          iconSrc = moonupLogoUrl;
+        } else if (addon.id === "timeline-reminders" || addon.icon === "/src/assets/timeline_reminders.png") {
+          iconSrc = timelineLogoUrl;
+        }
+
+        const icon = iconSrc
+          ? `<img src="${iconSrc}" class="addon-logo-img" alt="" onerror="window.healAddonIcon('${addon.id}', '${addon.repo}', this, '${addon.fallbackInitials || "?"}')">`
           : `<div class="addon-logo">${addon.fallbackInitials || "?"}</div>`;
+
 
         // Ignore/Pause button (nur wenn eingeloggt)
         const ignoreBtn = authToken
@@ -822,6 +1043,16 @@ window.addEventListener("DOMContentLoaded", async () => {
           ? `<button class="btn-card-action btn-delete del-btn" data-id="${addon.id}" title="${addon.label} deinstallieren">${TRASH_SVG}</button>`
           : "";
 
+        // Last updated time
+        const updatedAtRaw = localStorage.getItem(`updated_at_${addon.folder}`);
+        const updatedAtFormatted = formatLastUpdated(updatedAtRaw);
+        const updatedHtml = (installed && updatedAtFormatted)
+          ? `<div class="card-updated-at">
+               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+               <span>Aktualisiert: ${updatedAtFormatted}</span>
+             </div>`
+          : "";
+
         return `
           <div class="addon-card ${ignored ? "is-paused" : ""}" data-id="${addon.id}">
             <div class="card-left">
@@ -831,6 +1062,7 @@ window.addEventListener("DOMContentLoaded", async () => {
                 <div class="card-version-row">
                   ${versionHtml}
                 </div>
+                ${updatedHtml}
               </div>
             </div>
             <div class="card-right">
@@ -885,7 +1117,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       } else {
         readinessCard.className = "status-mini-bar ready";
         readinessTitle.textContent = "Alles aktuell";
-        readinessDesc.textContent = "Bereit für WoW";
+        readinessDesc.textContent = "";
       }
 
       // Dynamic event listeners
@@ -1080,30 +1312,46 @@ window.addEventListener("DOMContentLoaded", async () => {
       const ok = await validateSession();
       if (!ok) return;
 
-      updateAllBtn.disabled = true;
-      updateAllBtn.innerHTML = `<span class="loader"></span> Aktualisiere...`;
-
-      for (const addon of ADDONS) {
-        if (isAddonIgnored(addon.id)) continue;
-
+      const targets = ADDONS.filter(addon => {
+        if (isAddonIgnored(addon.id)) return false;
         const local = localStorage.getItem(`version_${addon.folder}`) || "";
         const remote = localStorage.getItem(`latest_${addon.folder}`) || "";
         const inst = !["Nicht installiert", "Unbekannt", "-"].includes(local);
+        return !inst || isNewerVersion(local, remote);
+      });
 
-        if (!inst || isNewerVersion(local, remote)) {
-          statusArea.textContent = `${TEXTS.status.installing}${addon.label}...`;
-          try {
-            await invoke("install_addon", {
-              token: authToken, repo: addon.repo, name: addon.folder,
-              path: wowPath, provider: addon.provider, directUrl: addon.directUrl || null,
-            });
-          } catch (e) { console.error(`Batch: ${addon.label}`, e); }
+      if (targets.length === 0) return;
+
+      const total = targets.length;
+      updateAllBtn.disabled = true;
+
+      for (let i = 0; i < total; i++) {
+        const addon = targets[i];
+        const currentNum = i + 1;
+
+        updateAllBtn.innerHTML = `<span class="loader"></span> (${currentNum}/${total}) ${addon.label}...`;
+        statusArea.textContent = `${TEXTS.status.installing}${addon.label} (${currentNum}/${total})...`;
+
+        const card = addonList.querySelector(`.addon-card[data-id="${addon.id}"]`) as HTMLElement | null;
+        card?.classList.add("is-updating");
+
+        try {
+          await invoke("install_addon", {
+            token: authToken, repo: addon.repo, name: addon.folder,
+            path: wowPath, provider: addon.provider, directUrl: addon.directUrl || null,
+          });
+          localStorage.setItem(`updated_at_${addon.folder}`, String(Date.now()));
+        } catch (e) {
+          console.error(`Batch: ${addon.label}`, e);
+        } finally {
+          card?.classList.remove("is-updating");
         }
       }
 
       await checkUpdates();
       statusArea.textContent = TEXTS.status.done;
     });
+
 
     deleteAllBtn.addEventListener("click", async () => {
       if (!wowPath) { alert("Bitte WoW-Pfad wählen."); return; }

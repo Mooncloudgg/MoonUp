@@ -29,6 +29,13 @@ struct GithubCacheEntry {
 
 static GITHUB_RELEASE_CACHE: Mutex<Option<HashMap<String, GithubCacheEntry>>> = Mutex::new(None);
 
+struct LocalVersionCacheEntry {
+    version: String,
+    mtime: std::time::SystemTime,
+}
+
+static LOCAL_VERSION_CACHE: Mutex<Option<HashMap<String, LocalVersionCacheEntry>>> = Mutex::new(None);
+
 const API_BASE: &str = "https://mooncloud.team";
 const APP_USER_AGENT: &str = "Moonup-App/2.0";
 const CF_API_KEY: &str = "$2a$10$bL4bIL5pUWqfcO7KQtnMReakwtfHbNKh6v1uTpKlzhwoueEJQnPnm";
@@ -217,6 +224,22 @@ fn get_installed_version(path: String, folder: String, _search: String) -> Strin
     if !full_addon_path.exists() { 
         return "Nicht installiert".to_string(); 
     }
+
+    // Check modification time of folder or primary files to avoid unnecessary disk parsing
+    let current_mtime = fs::metadata(&full_addon_path)
+        .and_then(|m| m.modified())
+        .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+
+    let cache_key = full_addon_path.to_string_lossy().to_string();
+    {
+        let mut lock = LOCAL_VERSION_CACHE.lock().unwrap();
+        let cache = lock.get_or_insert_with(HashMap::new);
+        if let Some(entry) = cache.get(&cache_key) {
+            if entry.mtime == current_mtime {
+                return entry.version.clone();
+            }
+        }
+    }
     
     // 1. VERSUCH: TOC Parsing (Primary for WoW Addons)
     let toc_names = [
@@ -224,34 +247,12 @@ fn get_installed_version(path: String, folder: String, _search: String) -> Strin
         format!("{}_Mainline.toc", folder),
         format!("{}-Mainline.toc", folder),
     ];
-
-    for toc_name in &toc_names {
-        let toc_path = full_addon_path.join(toc_name);
-        if toc_path.exists() {
-            if let Ok(content) = fs::read_to_string(&toc_path) {
-                for line in content.lines() {
-                    let trimmed = line.trim();
-                    let lower = trimmed.to_lowercase();
-                    if lower.starts_with("##") && lower.contains("version") {
-                        if let Some(idx) = trimmed.find(':') {
-                            let raw_ver = &trimmed[idx+1..];
-                            let clean = clean_wow_string(raw_ver);
-                            if !clean.is_empty() { 
-                                return clean; 
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Scan any .toc file in folder if specific name wasn't found
-    if let Ok(entries) = fs::read_dir(&full_addon_path) {
-        for entry in entries.flatten() {
-            let p = entry.path();
-            if p.is_file() && p.extension().map_or(false, |ext| ext == "toc") {
-                if let Ok(content) = fs::read_to_string(&p) {
+    let parsed_ver = (|| {
+        // 1. VERSUCH: TOC Parsing (Primary for WoW Addons)
+        for toc_name in &toc_names {
+            let toc_path = full_addon_path.join(toc_name);
+            if toc_path.exists() {
+                if let Ok(content) = fs::read_to_string(&toc_path) {
                     for line in content.lines() {
                         let trimmed = line.trim();
                         let lower = trimmed.to_lowercase();
@@ -268,37 +269,72 @@ fn get_installed_version(path: String, folder: String, _search: String) -> Strin
                 }
             }
         }
-    }
 
-    // 2. VERSUCH: Changelog / Readme Parsing
-    let md_names = ["CHANGELOG.md", "Changelog.md", "changelog.md", "README.md", "Readme.md"];
-    
-    for md_name in md_names {
-        let md_path = full_addon_path.join(md_name);
-        if md_path.exists() {
-            if let Ok(content) = fs::read_to_string(&md_path) {
-                for line in content.lines() {
-                    let trimmed = line.trim();
-                    if trimmed.starts_with("##") && trimmed.contains('[') {
-                        if let (Some(start), Some(end)) = (trimmed.find('['), trimmed.find(']')) {
-                            if end > start {
-                                let ver_candidate = &trimmed[start+1..end];
-                                if ver_candidate.starts_with('v') || ver_candidate.starts_with('V') || ver_candidate.chars().any(|c| c.is_numeric()) {
-                                    return ver_candidate.to_string();
+        // Scan any .toc file in folder if specific name wasn't found
+        if let Ok(entries) = fs::read_dir(&full_addon_path) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_file() && p.extension().map_or(false, |ext| ext == "toc") {
+                    if let Ok(content) = fs::read_to_string(&p) {
+                        for line in content.lines() {
+                            let trimmed = line.trim();
+                            let lower = trimmed.to_lowercase();
+                            if lower.starts_with("##") && lower.contains("version") {
+                                if let Some(idx) = trimmed.find(':') {
+                                    let raw_ver = &trimmed[idx+1..];
+                                    let clean = clean_wow_string(raw_ver);
+                                    if !clean.is_empty() { 
+                                        return clean; 
+                                    }
                                 }
                             }
                         }
                     }
-                    if trimmed.starts_with("# v") || trimmed.starts_with("# V") {
-                         let clean = trimmed.trim_matches('#').trim();
-                         if clean.len() < 15 { return clean.to_string(); }
+                }
+            }
+        }
+
+        // 2. VERSUCH: Changelog / Readme Parsing
+        let md_names = ["CHANGELOG.md", "Changelog.md", "changelog.md", "README.md", "Readme.md"];
+        
+        for md_name in md_names {
+            let md_path = full_addon_path.join(md_name);
+            if md_path.exists() {
+                if let Ok(content) = fs::read_to_string(&md_path) {
+                    for line in content.lines() {
+                        let trimmed = line.trim();
+                        if trimmed.starts_with("##") && trimmed.contains('[') {
+                            if let (Some(start), Some(end)) = (trimmed.find('['), trimmed.find(']')) {
+                                if end > start {
+                                    let ver_candidate = &trimmed[start+1..end];
+                                    if ver_candidate.starts_with('v') || ver_candidate.starts_with('V') || ver_candidate.chars().any(|c| c.is_numeric()) {
+                                        return ver_candidate.to_string();
+                                    }
+                                }
+                            }
+                        }
+                        if trimmed.starts_with("# v") || trimmed.starts_with("# V") {
+                             let clean = trimmed.trim_matches('#').trim();
+                             if clean.len() < 15 { return clean.to_string(); }
+                        }
                     }
                 }
             }
         }
+
+        "Unbekannt".to_string()
+    })();
+
+    {
+        let mut lock = LOCAL_VERSION_CACHE.lock().unwrap();
+        let cache = lock.get_or_insert_with(HashMap::new);
+        cache.insert(cache_key, LocalVersionCacheEntry {
+            version: parsed_ver.clone(),
+            mtime: current_mtime,
+        });
     }
 
-    "Unbekannt".to_string()
+    parsed_ver
 }
 
 #[tauri::command]
@@ -714,6 +750,18 @@ fn is_wow_running() -> bool {
                 || text.contains("wowb.exe");
         }
     }
+    #[cfg(target_os = "macos")]
+    {
+        let output = std::process::Command::new("ps")
+            .args(["-A", "-c", "-o", "command"])
+            .output();
+        if let Ok(out) = output {
+            let text = String::from_utf8_lossy(&out.stdout).to_lowercase();
+            return text.contains("world of warcraft") 
+                || text.contains("wow") 
+                || text.contains("wowclassic");
+        }
+    }
     false
 }
 
@@ -731,6 +779,96 @@ fn close_window(app: tauri::AppHandle) {
     }
 }
 
+#[tauri::command]
+fn export_wow_backup(wow_path: String, target_zip_path: String) -> Result<u64, String> {
+    use std::fs::File;
+    use std::io::{Read, Write};
+    use walkdir::WalkDir;
+    use zip::write::FileOptions;
+    use zip::CompressionMethod;
+
+    let addon_dir = resolve_addon_path(&wow_path);
+    let interface_dir = if addon_dir.file_name().map_or(false, |n| n.to_string_lossy().eq_ignore_ascii_case("addons")) {
+        addon_dir.parent().unwrap_or(&addon_dir).to_path_buf()
+    } else {
+        addon_dir.clone()
+    };
+    let retail_dir = interface_dir.parent().unwrap_or(&interface_dir).to_path_buf();
+    let wtf_dir = retail_dir.join("WTF");
+
+    if !interface_dir.exists() && !wtf_dir.exists() {
+        return Err("Weder Interface- noch WTF-Ordner im angegebenen WoW-Pfad gefunden.".to_string());
+    }
+
+    let file = File::create(&target_zip_path).map_err(|e| format!("Konnte ZIP-Datei nicht erstellen: {}", e))?;
+    let mut zip = zip::ZipWriter::new(file);
+    let options = FileOptions::default()
+        .compression_method(CompressionMethod::Deflated)
+        .unix_permissions(0o755);
+
+    let mut buffer = vec![0u8; 64 * 1024];
+    let mut total_bytes_read: u64 = 0;
+
+    let folders_to_zip = [("Interface", interface_dir), ("WTF", wtf_dir)];
+
+    for (prefix, folder_path) in folders_to_zip {
+        if !folder_path.exists() {
+            continue;
+        }
+
+        for entry in WalkDir::new(&folder_path).into_iter().filter_map(|e| e.ok()) {
+            let path = entry.path();
+            let relative_path = match path.strip_prefix(&folder_path) {
+                Ok(p) => p,
+                Err(_) => continue,
+            };
+
+            let relative_str = relative_path.to_string_lossy().replace('\\', "/");
+            let zip_entry_name = if relative_str.is_empty() {
+                format!("{}/", prefix)
+            } else {
+                format!("{}/{}", prefix, relative_str)
+            };
+
+            if path.is_dir() {
+                let dir_name = if zip_entry_name.ends_with('/') {
+                    zip_entry_name
+                } else {
+                    format!("{}/", zip_entry_name)
+                };
+                let _ = zip.add_directory(dir_name, options);
+            } else if path.is_file() {
+                let file_name = path.file_name().map_or("", |n| n.to_str().unwrap_or(""));
+                if file_name.ends_with(".lock") || file_name.ends_with(".tmp") {
+                    continue;
+                }
+
+                if let Ok(mut f) = File::open(path) {
+                    if zip.start_file(zip_entry_name, options).is_ok() {
+                        loop {
+                            match f.read(&mut buffer) {
+                                Ok(0) => break,
+                                Ok(n) => {
+                                    total_bytes_read += n as u64;
+                                    if zip.write_all(&buffer[..n]).is_err() {
+                                        break;
+                                    }
+                                }
+                                Err(_) => break,
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    zip.finish().map_err(|e| format!("Fehler beim Fertigstellen des ZIPs: {}", e))?;
+
+    let final_size = fs::metadata(&target_zip_path).map(|m| m.len()).unwrap_or(total_bytes_read);
+    Ok(final_size)
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
@@ -739,8 +877,15 @@ fn main() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec![])))
+        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec!["--minimized"])))
         .setup(|app| {
+            let args: Vec<String> = std::env::args().collect();
+            if args.iter().any(|a| a == "--minimized") {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.hide();
+                }
+            }
+
             // Context menu for System Tray
             let show_i = MenuItemBuilder::with_id("show", "Moonup öffnen").build(app)?;
             let quit_i = MenuItemBuilder::with_id("quit", "Beenden").build(app)?;
@@ -814,7 +959,8 @@ fn main() {
             sync_addon_bridge,
             is_wow_running,
             minimize_window,
-            close_window
+            close_window,
+            export_wow_backup
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

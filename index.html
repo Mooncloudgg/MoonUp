@@ -138,6 +138,14 @@
           </label>
         </div>
 
+        <div class="setting-item" id="start-minimized-item" style="display:none; padding-top:0;">
+          <span style="font-size:0.8rem; color:var(--text-sub); padding-left:12px;">↳ Minimiert im Tray starten</span>
+          <label class="switch">
+            <input type="checkbox" id="start-minimized-cb" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
         <div class="setting-item">
           <span>Beim Schließen minimieren (Tray)</span>
           <label class="switch">
@@ -170,9 +178,17 @@
         <div class="setting-item">
           <span>Version</span>
           <div style="display:flex; align-items:center; gap:8px;">
-            <span id="app-version-label" style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-muted);">v2.1.1</span>
+            <span id="app-version-label" style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-muted);">v2.1.3</span>
             <button id="check-app-update-btn" class="btn-ghost-small" title="Nach Moonup-Updates suchen">Prüfen</button>
           </div>
+        </div>
+
+        <div class="setting-backup-section">
+          <div class="setting-backup-info">
+            <span class="setting-backup-title">WoW UI-Backup (ZIP)</span>
+            <span class="setting-backup-desc">Exportiert Interface & WTF als ZIP-Archiv</span>
+          </div>
+          <button id="export-backup-btn" class="btn-ghost-small">Exportieren</button>
         </div>
 
         <div style="border-top:1px solid var(--border-subtle); padding-top:12px;">
@@ -180,6 +196,35 @@
         </div>
       </div>
     </div>
+
+    <!-- Custom Styled WoW Running Warning Modal -->
+    <div id="wow-running-modal" class="modal-backdrop">
+      <div class="modal-box modal-box-warning">
+        <div class="modal-warning-header">
+          <div class="modal-warning-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div>
+            <div class="modal-title">WoW ist noch geöffnet</div>
+            <div class="modal-subtitle">Ungespeicherte Addon-Profile</div>
+          </div>
+        </div>
+
+        <p class="modal-warning-text">
+          World of Warcraft schreibt geänderte Profile und Einstellungen (SavedVariables) erst beim <strong>Beenden des Spiels</strong> auf die Festplatte.
+        </p>
+
+        <div class="modal-warning-hint">
+          <span>💡 Tipp: Für ein 100% aktuelles Backup beende WoW vorher kurz.</span>
+        </div>
+
+        <div class="modal-warning-actions">
+          <button id="wow-running-cancel" class="btn-ghost-cancel">Abbrechen</button>
+          <button id="wow-running-proceed" class="btn-warning-proceed">Trotzdem exportieren</button>
+        </div>
+      </div>
+    </div>
+
 
     <!-- Addon Context Menu -->
     <div id="addon-context-menu" class="context-menu" style="display:none;">

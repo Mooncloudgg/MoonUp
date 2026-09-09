@@ -14,14 +14,14 @@ export const API_CONFIG = {
   baseUrl: "https://mooncloud.team",
   authLoginUrl: "https://mooncloud.team/auth/login",
   authCheckUrl: "https://mooncloud.team/auth/check",
-  clientVersion: "2.1.2",
+  clientVersion: "2.1.3",
   githubRepo: "Mooncloudgg/MoonUp"
 };
 
 export const TEXTS = {
   app: {
     title: "Moonup",
-    version: "v2.1.2",
+    version: "v2.1.3",
   },
   buttons: {
     login: "Login mit Discord",
@@ -74,7 +74,7 @@ export const ADDONS: AddonItem[] = [
     search: "Timeline",
     repo: "Mooncloudgg/MoonReminder",
     provider: "mooncloud",
-    icon: "https://raw.githubusercontent.com/Mooncloudgg/MoonReminder/main/icon.png",
+    icon: "/src/assets/timeline_reminders.png",
     fallbackInitials: "TR"
   },
   {
@@ -84,7 +84,7 @@ export const ADDONS: AddonItem[] = [
     search: "WoWUtils",
     repo: "1620704",
     provider: "curseforge",
-    icon: "https://media.forgecdn.net/avatars/1010/893/638531061909831952.png",
+    icon: "https://media.forgecdn.net/avatars/thumbnails/1935/970/256/256/639203229562905031.png",
     fallbackInitials: "WU"
   },
   {
@@ -94,7 +94,7 @@ export const ADDONS: AddonItem[] = [
     search: "North",
     repo: "954018",
     provider: "curseforge",
-    icon: "https://media.forgecdn.net/avatars/862/282/638344781498498498.png",
+    icon: "https://media.forgecdn.net/avatars/thumbnails/1630/886/256/256/639045455370483569.png",
     fallbackInitials: "NS"
   },
   {
@@ -104,7 +104,7 @@ export const ADDONS: AddonItem[] = [
     search: "RCLoot",
     repo: "39928",
     provider: "curseforge",
-    icon: "",
+    icon: "https://media.forgecdn.net/avatars/thumbnails/245/404/256/256/637151375907968193.png",
     fallbackInitials: "RC"
   }
 ];

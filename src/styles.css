@@ -537,6 +537,19 @@ html, body {
 .v-next { color: var(--accent); font-weight: 600; }
 .v-missing { color: var(--text-sub); font-style: italic; }
 
+.card-updated-at {
+  font-size: 0.67rem;
+  color: var(--text-sub);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
+}
+
+.card-updated-at svg {
+  opacity: 0.6;
+}
+
 .card-right {
   display: flex;
   align-items: center;
@@ -952,4 +965,152 @@ input:checked + .slider:before { transform: translateX(16px); }
   height: 1px;
   background: var(--border-subtle);
   margin: 4px 0;
+}
+
+/* ── Backup Section & Animations ── */
+.setting-backup-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border-subtle);
+  padding: 12px 0 6px 0;
+  margin-top: 4px;
+}
+
+.setting-backup-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.setting-backup-title {
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.setting-backup-desc {
+  font-size: 0.72rem;
+  color: var(--text-sub);
+}
+
+/* Card Updating Glow & Progress Animation */
+.addon-card.is-updating {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(139, 92, 246, 0.45);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.15);
+}
+
+.addon-card.is-updating::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  background: linear-gradient(90deg, transparent, var(--accent), #c4b5fd, transparent);
+  animation: progressPulse 1.2s infinite linear;
+}
+
+@keyframes progressPulse {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ── WoW Running Warning Modal ── */
+.modal-box-warning {
+  border-color: rgba(245, 158, 11, 0.4);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 25px rgba(245, 158, 11, 0.12);
+  gap: 12px;
+}
+
+.modal-warning-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.modal-warning-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.modal-subtitle {
+  font-size: 0.74rem;
+  color: #fbbf24;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.modal-warning-text {
+  font-size: 0.8rem;
+  color: var(--text-main);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.modal-warning-text strong {
+  color: #ffffff;
+}
+
+.modal-warning-hint {
+  font-size: 0.73rem;
+  color: var(--text-sub);
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 6px;
+  padding: 8px 10px;
+  border-left: 2px solid #fbbf24;
+}
+
+.modal-warning-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btn-ghost-cancel {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
+  padding: 7px 14px;
+  border-radius: 7px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-ghost-cancel:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.btn-warning-proceed {
+  background: var(--accent);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  padding: 7px 14px;
+  border-radius: 7px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 10px rgba(139, 92, 246, 0.25);
+}
+
+.btn-warning-proceed:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);
 }
