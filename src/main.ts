@@ -4,7 +4,7 @@ import { open, save, ask, message } from "@tauri-apps/plugin-dialog";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
 import { TEXTS, ADDONS, API_CONFIG, AddonItem } from "./config";
-import { check } from "@tauri-apps/plugin-updater";
+import { check, Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { sendNotification, isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import { v4 as uuidv4 } from "uuid";
@@ -506,13 +506,22 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (checkAppUpdateBtn) {
       checkAppUpdateBtn.addEventListener("click", async () => {
         checkAppUpdateBtn.disabled = true;
-        const origText = checkAppUpdateBtn.textContent;
+        const origText = checkAppUpdateBtn.textContent || "Prüfen";
         checkAppUpdateBtn.textContent = "...";
         try {
-          await checkForAppUpdates(true);
+          const update = await checkForAppUpdates(true);
+          if (update) {
+            checkAppUpdateBtn.textContent = `v${update.version} bereit!`;
+          } else {
+            checkAppUpdateBtn.textContent = "Aktuell ✓";
+          }
+        } catch (_) {
+          checkAppUpdateBtn.textContent = "Fehler";
         } finally {
-          checkAppUpdateBtn.disabled = false;
-          checkAppUpdateBtn.textContent = origText;
+          setTimeout(() => {
+            checkAppUpdateBtn.disabled = false;
+            checkAppUpdateBtn.textContent = origText;
+          }, 2000);
         }
       });
     }
@@ -600,99 +609,99 @@ window.addEventListener("DOMContentLoaded", async () => {
       }, 2000);
     }
 
-    /* ── App Updater (Discord Style: Silent Background Download & Pill) ── */
+    /* ── App Updater (Pill Notification & User-Triggered Install) ── */
 
-    let updateReadyToRelaunch = false;
+    let pendingAppUpdate: Update | null = null;
+    let isInstallingAppUpdate = false;
 
     if (appUpdatePill) {
       appUpdatePill.addEventListener("click", async () => {
-        if (updateReadyToRelaunch) {
-          appUpdatePill.disabled = true;
-          appUpdatePillText.textContent = "Neustart...";
-          try {
-            await relaunch();
-          } catch (err) {
-            console.error("Relaunch error:", err);
-            appUpdatePill.disabled = false;
-            appUpdatePillText.textContent = "Fehler beim Neustart";
-          }
+        if (isInstallingAppUpdate || !pendingAppUpdate) return;
+
+        isInstallingAppUpdate = true;
+        appUpdatePill.disabled = true;
+        if (appUpdatePillText) appUpdatePillText.textContent = "Lade 0%...";
+
+        const updateToInstall = pendingAppUpdate;
+        try {
+          let downloaded = 0;
+          let contentLength = 0;
+
+          await updateToInstall.downloadAndInstall((event) => {
+            switch (event.event) {
+              case 'Started':
+                contentLength = event.data.contentLength || 0;
+                if (appUpdatePillText) appUpdatePillText.textContent = "Lade 0%...";
+                break;
+              case 'Progress':
+                downloaded += event.data.chunkLength;
+                if (contentLength > 0 && appUpdatePillText) {
+                  const pct = Math.round((downloaded / contentLength) * 100);
+                  appUpdatePillText.textContent = `Lade ${pct}%...`;
+                }
+                break;
+              case 'Finished':
+                if (appUpdatePillText) appUpdatePillText.textContent = "Neustart...";
+                break;
+            }
+          });
+
+          if (appUpdatePillText) appUpdatePillText.textContent = "Neustart...";
+          await relaunch();
+        } catch (err) {
+          console.error("Update Installation fehlgeschlagen:", err);
+          if (appUpdatePillText) appUpdatePillText.textContent = "Fehler";
+          appUpdatePill.disabled = false;
+          isInstallingAppUpdate = false;
+          setTimeout(() => {
+            if (appUpdatePillText && pendingAppUpdate) {
+              appUpdatePillText.textContent = `v${pendingAppUpdate.version} bereit`;
+            }
+          }, 3000);
         }
       });
     }
 
-    async function checkForAppUpdates(manual = false) {
+    async function checkForAppUpdates(manual = false): Promise<Update | null> {
+      if (isInstallingAppUpdate) return pendingAppUpdate;
+
       try {
-        console.log("[Updater] Checking for Moonup updates...");
+        console.log(`[Updater] Checking for Moonup updates (manual=${manual})...`);
         const update = await check();
         console.log("[Updater] Check result:", update);
 
         if (update) {
+          pendingAppUpdate = update;
           const newVer = update.version;
 
           if (appUpdatePill && appUpdatePillText) {
             appUpdatePill.style.display = "flex";
-            appUpdatePillText.textContent = `Lade v${newVer}...`;
+            appUpdatePill.disabled = false;
+            appUpdatePillText.textContent = `v${newVer} bereit`;
+            appUpdatePill.title = `Moonup v${newVer} verfügbar. Klicken zum Aktualisieren & Neustarten!`;
           }
 
           if (notifiedAppUpdate !== newVer) {
             notifiedAppUpdate = newVer;
             await notifyUser(
               "Moonup • Update verfügbar",
-              `Moonup v${newVer} wird im Hintergrund heruntergeladen.`
+              `Moonup v${newVer} steht bereit. Klicke im Header auf "v${newVer} bereit" zum Aktualisieren.`
             );
           }
-
-          // Silent Background Download and Install
-          let downloaded = 0;
-          let contentLength = 0;
-          await update.downloadAndInstall((event) => {
-            switch (event.event) {
-              case 'Started':
-                contentLength = event.data.contentLength || 0;
-                if (appUpdatePillText) appUpdatePillText.textContent = `v${newVer} (0%)`;
-                break;
-              case 'Progress':
-                downloaded += event.data.chunkLength;
-                if (contentLength > 0 && appUpdatePillText) {
-                  const pct = Math.round((downloaded / contentLength) * 100);
-                  appUpdatePillText.textContent = `v${newVer} (${pct}%)`;
-                }
-                break;
-              case 'Finished':
-                break;
-            }
-          });
-
-          // Staging complete! Ready for 1-click relaunch
-          updateReadyToRelaunch = true;
-          if (appUpdatePill && appUpdatePillText) {
-            appUpdatePill.style.display = "flex";
-            appUpdatePillText.textContent = `v${newVer} | Neustart`;
-            appUpdatePill.title = `Moonup v${newVer} ist einsatzbereit. Klicken zum sofortigen Neustart!`;
+          return update;
+        } else {
+          pendingAppUpdate = null;
+          if (appUpdatePill) {
+            appUpdatePill.style.display = "none";
           }
-
-          await notifyUser(
-            "Moonup • Update bereit",
-            `v${newVer} ist einsatzbereit! Starte Moonup jetzt neu.`
-          );
-
-        } else if (manual) {
-          await message("Moonup ist auf dem neuesten Stand (" + TEXTS.app.version + ") ✓", {
-            title: "Kein Update verfügbar",
-            kind: "info",
-          });
+          return null;
         }
       } catch (err) {
         console.error("App Update Check fehlgeschlagen:", err);
-        if (appUpdatePill) {
+        if (appUpdatePill && !pendingAppUpdate) {
           appUpdatePill.style.display = "none";
         }
-        if (manual) {
-          await message("Fehler beim Prüfen auf Updates: " + err, {
-            title: "Fehler",
-            kind: "error",
-          });
-        }
+        return null;
       }
     }
 

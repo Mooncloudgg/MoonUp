@@ -166,6 +166,13 @@ html, body {
   transform: translateY(-1px);
 }
 
+.app-update-pill:disabled {
+  opacity: 0.75;
+  cursor: wait;
+  transform: none;
+  box-shadow: none;
+}
+
 .update-pulse {
   width: 6px;
   height: 6px;
