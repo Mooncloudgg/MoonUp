@@ -177,13 +177,18 @@ window.addEventListener("DOMContentLoaded", async () => {
     const startMinimizedCb   = document.getElementById("start-minimized-cb") as HTMLInputElement;
     const exportBackupBtn    = document.getElementById("export-backup-btn") as HTMLButtonElement;
 
-    // Header In-App Update Pill
-    const appUpdatePill      = document.getElementById("app-update-pill") as HTMLButtonElement;
-    const appUpdatePillText  = document.getElementById("app-update-pill-text") as HTMLSpanElement;
+    // Top-Bar In-App Update Banner
+    const topAppUpdateBanner       = document.getElementById("top-app-update-banner") as HTMLDivElement;
+    const topAppUpdateMsg          = document.getElementById("top-app-update-msg") as HTMLSpanElement;
+    const topAppUpdateBadge        = document.getElementById("top-app-update-badge") as HTMLSpanElement;
+    const topAppUpdateBtn          = document.getElementById("top-app-update-btn") as HTMLButtonElement;
+    const topAppUpdateBtnText      = document.getElementById("top-app-update-btn-text") as HTMLSpanElement;
+    const topAppUpdateDismiss      = document.getElementById("top-app-update-dismiss") as HTMLButtonElement;
+    const settingsGearBadge        = document.getElementById("settings-gear-badge") as HTMLSpanElement;
 
-    // Settings Update Banner
-    const settingsUpdateBanner     = document.getElementById("settings-update-banner") as HTMLDivElement;
-    const settingsUpdateBannerText = document.getElementById("settings-update-banner-text") as HTMLSpanElement;
+    // Settings Inline Version Update Elements
+    const settingsInlineUpdatePill = document.getElementById("settings-inline-update-pill") as HTMLSpanElement;
+    const settingsInlineUpdateText = document.getElementById("settings-inline-update-text") as HTMLSpanElement;
     const settingsInstallUpdateBtn = document.getElementById("settings-install-update-btn") as HTMLButtonElement;
 
     // Context Menu DOM
@@ -522,18 +527,19 @@ window.addEventListener("DOMContentLoaded", async () => {
         try {
           const update = await checkForAppUpdates(true);
           if (update) {
-            checkAppUpdateBtn.textContent = "Gefunden!";
+            return;
           } else {
             checkAppUpdateBtn.textContent = "Aktuell ✓";
           }
         } catch (_) {
           checkAppUpdateBtn.textContent = "Fehler";
-        } finally {
-          setTimeout(() => {
+        }
+        setTimeout(() => {
+          if (!pendingAppUpdate) {
             checkAppUpdateBtn.disabled = false;
             checkAppUpdateBtn.textContent = origText;
-          }, 2000);
-        }
+          }
+        }, 2000);
       });
     }
 
@@ -630,11 +636,11 @@ window.addEventListener("DOMContentLoaded", async () => {
       if (isInstallingAppUpdate || !pendingAppUpdate) return;
 
       isInstallingAppUpdate = true;
-      if (appUpdatePill) appUpdatePill.disabled = true;
+      if (topAppUpdateBtn) topAppUpdateBtn.disabled = true;
       if (settingsInstallUpdateBtn) settingsInstallUpdateBtn.disabled = true;
 
       const setBtnText = (txt: string) => {
-        if (appUpdatePillText) appUpdatePillText.textContent = txt;
+        if (topAppUpdateBtnText) topAppUpdateBtnText.textContent = txt;
         if (settingsInstallUpdateBtn) settingsInstallUpdateBtn.textContent = txt;
       };
 
@@ -674,20 +680,25 @@ window.addEventListener("DOMContentLoaded", async () => {
       } catch (err) {
         console.error("Update Installation fehlgeschlagen:", err);
         setBtnText("Fehler");
-        if (appUpdatePill) appUpdatePill.disabled = false;
+        if (topAppUpdateBtn) topAppUpdateBtn.disabled = false;
         if (settingsInstallUpdateBtn) settingsInstallUpdateBtn.disabled = false;
         isInstallingAppUpdate = false;
         setTimeout(() => {
           if (pendingAppUpdate) {
-            if (appUpdatePillText) appUpdatePillText.textContent = `v${pendingAppUpdate.version} bereit`;
-            if (settingsInstallUpdateBtn) settingsInstallUpdateBtn.textContent = isUpdateDownloaded ? "Jetzt neu starten" : "Jetzt aktualisieren";
+            if (topAppUpdateBtnText) topAppUpdateBtnText.textContent = isUpdateDownloaded ? "Jetzt neu starten" : "Aktualisieren";
+            if (settingsInstallUpdateBtn) settingsInstallUpdateBtn.textContent = isUpdateDownloaded ? "Neu starten" : "Aktualisieren";
           }
         }, 3000);
       }
     }
 
-    if (appUpdatePill) {
-      appUpdatePill.addEventListener("click", triggerAppUpdate);
+    if (topAppUpdateBtn) {
+      topAppUpdateBtn.addEventListener("click", triggerAppUpdate);
+    }
+    if (topAppUpdateDismiss) {
+      topAppUpdateDismiss.addEventListener("click", () => {
+        if (topAppUpdateBanner) topAppUpdateBanner.style.display = "none";
+      });
     }
     if (settingsInstallUpdateBtn) {
       settingsInstallUpdateBtn.addEventListener("click", triggerAppUpdate);
@@ -705,25 +716,35 @@ window.addEventListener("DOMContentLoaded", async () => {
           pendingAppUpdate = update;
           const newVer = update.version;
 
-          if (appUpdatePill && appUpdatePillText) {
-            appUpdatePill.style.display = "flex";
-            appUpdatePill.disabled = false;
-            appUpdatePillText.textContent = isUpdateDownloaded ? `v${newVer} • Neustart` : `v${newVer} bereit`;
-            appUpdatePill.title = `Moonup v${newVer} verfügbar. Klicken zum Aktualisieren & Neustarten!`;
+          if (topAppUpdateBanner) {
+            topAppUpdateBanner.style.display = "flex";
+            if (topAppUpdateBadge) topAppUpdateBadge.textContent = `v${newVer}`;
+            if (topAppUpdateMsg) topAppUpdateMsg.textContent = isUpdateDownloaded ? "Update fertig geladen:" : "Moonup Update bereit:";
+            if (topAppUpdateBtn) topAppUpdateBtn.disabled = false;
+            if (topAppUpdateBtnText) topAppUpdateBtnText.textContent = isUpdateDownloaded ? "Jetzt neu starten" : "Aktualisieren";
           }
 
-          if (settingsUpdateBanner && settingsUpdateBannerText && settingsInstallUpdateBtn) {
-            settingsUpdateBanner.style.display = "flex";
-            settingsUpdateBannerText.textContent = `v${newVer} verfügbar`;
+          if (settingsGearBadge) {
+            settingsGearBadge.style.display = "block";
+          }
+
+          if (settingsInlineUpdatePill && settingsInlineUpdateText) {
+            settingsInlineUpdatePill.style.display = "inline-flex";
+            settingsInlineUpdateText.textContent = `v${newVer}`;
+          }
+
+          if (checkAppUpdateBtn && settingsInstallUpdateBtn) {
+            checkAppUpdateBtn.style.display = "none";
+            settingsInstallUpdateBtn.style.display = "inline-block";
             settingsInstallUpdateBtn.disabled = false;
-            settingsInstallUpdateBtn.textContent = isUpdateDownloaded ? "Jetzt neu starten" : "Jetzt aktualisieren";
+            settingsInstallUpdateBtn.textContent = isUpdateDownloaded ? "Neu starten" : "Aktualisieren";
           }
 
           if (notifiedAppUpdate !== newVer) {
             notifiedAppUpdate = newVer;
             await notifyUser(
               "Moonup • Update verfügbar",
-              `Moonup v${newVer} steht bereit. Klicke auf "Jetzt aktualisieren" zum Installieren.`
+              `Moonup v${newVer} steht bereit. Klicke auf "Aktualisieren" zum Installieren.`
             );
           }
 
@@ -731,11 +752,14 @@ window.addEventListener("DOMContentLoaded", async () => {
           if (!isUpdateDownloaded) {
             update.download().then(() => {
               isUpdateDownloaded = true;
-              if (appUpdatePillText && !isInstallingAppUpdate) {
-                appUpdatePillText.textContent = `v${newVer} • Neustart`;
+              if (topAppUpdateMsg && !isInstallingAppUpdate) {
+                topAppUpdateMsg.textContent = "Update fertig geladen:";
+              }
+              if (topAppUpdateBtnText && !isInstallingAppUpdate) {
+                topAppUpdateBtnText.textContent = "Jetzt neu starten";
               }
               if (settingsInstallUpdateBtn && !isInstallingAppUpdate) {
-                settingsInstallUpdateBtn.textContent = "Jetzt neu starten";
+                settingsInstallUpdateBtn.textContent = "Neu starten";
               }
             }).catch(err => {
               console.warn("Background pre-download note:", err);
@@ -746,21 +770,21 @@ window.addEventListener("DOMContentLoaded", async () => {
         } else {
           pendingAppUpdate = null;
           isUpdateDownloaded = false;
-          if (appUpdatePill) {
-            appUpdatePill.style.display = "none";
-          }
-          if (settingsUpdateBanner) {
-            settingsUpdateBanner.style.display = "none";
-          }
+          if (topAppUpdateBanner) topAppUpdateBanner.style.display = "none";
+          if (settingsGearBadge) settingsGearBadge.style.display = "none";
+          if (settingsInlineUpdatePill) settingsInlineUpdatePill.style.display = "none";
+          if (checkAppUpdateBtn) checkAppUpdateBtn.style.display = "inline-block";
+          if (settingsInstallUpdateBtn) settingsInstallUpdateBtn.style.display = "none";
           return null;
         }
       } catch (err) {
         console.error("App Update Check fehlgeschlagen:", err);
-        if (appUpdatePill && !pendingAppUpdate) {
-          appUpdatePill.style.display = "none";
-        }
-        if (settingsUpdateBanner && !pendingAppUpdate) {
-          settingsUpdateBanner.style.display = "none";
+        if (!pendingAppUpdate) {
+          if (topAppUpdateBanner) topAppUpdateBanner.style.display = "none";
+          if (settingsGearBadge) settingsGearBadge.style.display = "none";
+          if (settingsInlineUpdatePill) settingsInlineUpdatePill.style.display = "none";
+          if (checkAppUpdateBtn) checkAppUpdateBtn.style.display = "inline-block";
+          if (settingsInstallUpdateBtn) settingsInstallUpdateBtn.style.display = "none";
         }
         return null;
       }

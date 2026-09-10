@@ -42,15 +42,9 @@
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
           </button>
 
-          <!-- In-App Update Ready Pill -->
-          <button id="app-update-pill" class="app-update-pill" style="display:none;" title="Update bereit. Klicken zum Neustarten.">
-            <span class="update-pulse"></span>
-            <span id="app-update-pill-text">v2.1.2 bereit</span>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-          </button>
-
-          <button id="open-settings-btn" class="btn-icon-ghost" title="Einstellungen">
+          <button id="open-settings-btn" class="btn-icon-ghost" title="Einstellungen" style="position:relative;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span id="settings-gear-badge" class="settings-gear-badge" style="display:none;"></span>
           </button>
 
           <div class="header-divider"></div>
@@ -65,6 +59,22 @@
           </div>
         </div>
       </header>
+
+      <!-- Sleek Top-Bar App Update Banner (1-Line, Mooncloud Purple) -->
+      <div id="top-app-update-banner" class="top-app-update-banner" style="display:none;">
+        <div class="top-app-update-left">
+          <span class="update-pulse-dot"></span>
+          <span id="top-app-update-msg">Moonup Update bereit:</span>
+          <span id="top-app-update-badge" class="top-app-update-badge">v...</span>
+        </div>
+        <div class="top-app-update-actions">
+          <button id="top-app-update-btn" class="btn-top-app-update">
+            <span>🚀</span>
+            <span id="top-app-update-btn-text">Aktualisieren</span>
+          </button>
+          <button id="top-app-update-dismiss" class="btn-top-app-dismiss" title="Ausblenden">✕</button>
+        </div>
+      </div>
 
       <!-- Login Waiting Status Banner -->
       <div id="login-status" class="login-banner" style="display:none;"></div>
@@ -178,18 +188,14 @@
         <div class="setting-item">
           <span>Version</span>
           <div style="display:flex; align-items:center; gap:8px;">
-            <span id="app-version-label" style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-muted);">v2.1.7</span>
+            <span id="app-version-label" style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-muted);">v2.1.8</span>
+            <span id="settings-inline-update-pill" class="settings-inline-update-pill" style="display:none;">
+              <span class="update-pulse-dot" style="width:5px; height:5px;"></span>
+              <span id="settings-inline-update-text">v...</span>
+            </span>
             <button id="check-app-update-btn" class="btn-ghost-small" title="Nach Moonup-Updates suchen">Prüfen</button>
+            <button id="settings-install-update-btn" class="btn-settings-update-action" style="display:none;">Aktualisieren</button>
           </div>
-        </div>
-
-        <!-- In-Settings App Update Banner -->
-        <div id="settings-update-banner" class="settings-update-banner" style="display:none;">
-          <div class="settings-update-banner-info">
-            <span class="update-pulse"></span>
-            <span id="settings-update-banner-text">v... verfügbar</span>
-          </div>
-          <button id="settings-install-update-btn" class="btn-install-app-update">Jetzt aktualisieren</button>
         </div>
 
         <div class="setting-backup-section">
