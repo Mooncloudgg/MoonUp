@@ -21,6 +21,45 @@ use std::time::{Instant, Duration};
 
 static CLOSE_TO_TRAY: AtomicBool = AtomicBool::new(true);
 
+#[derive(Serialize, Deserialize, Default)]
+struct AppConfig {
+    start_minimized: bool,
+}
+
+fn get_config_path() -> PathBuf {
+    if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
+        PathBuf::from(local_app_data).join("Moonup").join("config.json")
+    } else {
+        PathBuf::from("moonup_config.json")
+    }
+}
+
+fn load_app_config() -> AppConfig {
+    let p = get_config_path();
+    if let Ok(content) = fs::read_to_string(&p) {
+        serde_json::from_str(&content).unwrap_or_default()
+    } else {
+        AppConfig { start_minimized: false }
+    }
+}
+
+fn save_app_config(cfg: &AppConfig) {
+    let p = get_config_path();
+    if let Some(parent) = p.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    if let Ok(json) = serde_json::to_string(cfg) {
+        let _ = fs::write(&p, json);
+    }
+}
+
+#[tauri::command]
+fn set_start_minimized(enabled: bool) {
+    let mut cfg = load_app_config();
+    cfg.start_minimized = enabled;
+    save_app_config(&cfg);
+}
+
 struct GithubCacheEntry {
     tag: String,
     etag: Option<String>,
@@ -834,6 +873,13 @@ fn export_wow_backup(wow_path: String, target_zip_path: String) -> Result<u64, S
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -844,8 +890,11 @@ fn main() {
         .setup(|app| {
             let args: Vec<String> = std::env::args().collect();
             if args.iter().any(|a| a == "--minimized") {
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.hide();
+                let cfg = load_app_config();
+                if cfg.start_minimized {
+                    if let Some(w) = app.get_webview_window("main") {
+                        let _ = w.hide();
+                    }
                 }
             }
 
@@ -919,6 +968,7 @@ fn main() {
             uninstall_addon,
             open_in_explorer,
             set_close_to_tray,
+            set_start_minimized,
             sync_addon_bridge,
             is_wow_running,
             minimize_window,

@@ -208,7 +208,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     let authUser   = localStorage.getItem("moonup_auth_user") || "";
     let autoBgUpdate = localStorage.getItem("moonup_auto_bg_update") !== "false";
     let closeToTray  = localStorage.getItem("moonup_close_to_tray") !== "false";
-    let startMinimized = localStorage.getItem("moonup_start_minimized") !== "false";
+    let startMinimized = localStorage.getItem("moonup_start_minimized") === "true";
     let notificationsEnabled = localStorage.getItem("moonup_notifications_enabled") !== "false";
     let loginPoll: number | null = null;
     let isChecking = false;
@@ -246,9 +246,10 @@ window.addEventListener("DOMContentLoaded", async () => {
       autoUpdateAddons = ["mooncloud-tools"];
     }
 
-    // Sync initial close-to-tray state with backend
+    // Sync initial close-to-tray & start-minimized state with backend
     try {
       await invoke("set_close_to_tray", { enabled: closeToTray });
+      await invoke("set_start_minimized", { enabled: startMinimized });
     } catch (_) {}
 
     function updateBgStatus() {
@@ -380,9 +381,14 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   if (startMinimizedCb) {
     startMinimizedCb.checked = startMinimized;
-    startMinimizedCb.addEventListener("change", () => {
+    startMinimizedCb.addEventListener("change", async () => {
       startMinimized = startMinimizedCb.checked;
       localStorage.setItem("moonup_start_minimized", String(startMinimized));
+      try {
+        await invoke("set_start_minimized", { enabled: startMinimized });
+      } catch (err) {
+        console.error("Set start minimized error:", err);
+      }
     });
   }
 
