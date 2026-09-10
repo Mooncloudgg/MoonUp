@@ -36,6 +36,10 @@
   user-select: none;
 }
 
+button, input, select, textarea {
+  font-family: inherit;
+}
+
 html, body {
   width: 100%;
   height: 100%;
@@ -846,6 +850,11 @@ html, body {
   align-items: center;
   font-size: 0.8rem;
   color: var(--text-main);
+  height: 32px;
+  min-height: 32px;
+  max-height: 32px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .auto-bg-sublist {
@@ -924,15 +933,37 @@ html, body {
   border: 1px solid rgba(255,255,255,0.12);
   color: #fff;
   border-radius: 4px;
-  padding: 2px 8px;
+  padding: 0 8px;
+  height: 24px;
+  min-height: 24px;
+  max-height: 24px;
   font-size: 0.72rem;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  line-height: 1;
+  white-space: nowrap;
+  min-width: 78px;
+  flex-shrink: 0;
 }
 
-.btn-ghost-small:hover {
+#check-app-update-btn {
+  width: 78px;
+  min-width: 78px;
+  max-width: 78px;
+}
+
+.btn-ghost-small:hover:not(:disabled) {
   background: var(--accent);
   border-color: var(--accent);
+}
+
+.btn-ghost-small:disabled {
+  opacity: 0.8;
+  cursor: default;
 }
 
 .settings-inline-update-pill {
@@ -941,13 +972,17 @@ html, body {
   background: rgba(153, 51, 255, 0.2);
   color: #d8b4fe;
   border: 1px solid rgba(153, 51, 255, 0.4);
-  padding: 2px 7px;
+  padding: 0 7px;
+  height: 22px;
   border-radius: 4px;
   font-weight: 700;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 5px;
   animation: slideDownUpdate 0.2s ease;
+  box-sizing: border-box;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .btn-settings-update-action {
@@ -955,12 +990,19 @@ html, body {
   color: #ffffff;
   border: none;
   border-radius: 4px;
-  padding: 2px 8px;
+  padding: 0 8px;
+  height: 22px;
   font-size: 0.7rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
   box-shadow: 0 2px 8px rgba(153, 51, 255, 0.35);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .btn-settings-update-action:hover:not(:disabled) {

@@ -522,22 +522,22 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (checkAppUpdateBtn) {
       checkAppUpdateBtn.addEventListener("click", async () => {
         checkAppUpdateBtn.disabled = true;
-        const origText = "Prüfen";
-        checkAppUpdateBtn.textContent = "...";
+        const origHtml = "Prüfen";
+        checkAppUpdateBtn.innerHTML = "...";
         try {
           const update = await checkForAppUpdates(true);
           if (update) {
             return;
           } else {
-            checkAppUpdateBtn.textContent = "Aktuell ✓";
+            checkAppUpdateBtn.innerHTML = `<span style="display:inline-flex; align-items:center; gap:4px; line-height:1;">Aktuell <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"></polyline></svg></span>`;
           }
         } catch (_) {
-          checkAppUpdateBtn.textContent = "Fehler";
+          checkAppUpdateBtn.innerHTML = "Fehler";
         }
         setTimeout(() => {
           if (!pendingAppUpdate) {
             checkAppUpdateBtn.disabled = false;
-            checkAppUpdateBtn.textContent = origText;
+            checkAppUpdateBtn.innerHTML = origHtml;
           }
         }, 2000);
       });
@@ -735,7 +735,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
           if (checkAppUpdateBtn && settingsInstallUpdateBtn) {
             checkAppUpdateBtn.style.display = "none";
-            settingsInstallUpdateBtn.style.display = "inline-block";
+            settingsInstallUpdateBtn.style.display = "inline-flex";
             settingsInstallUpdateBtn.disabled = false;
             settingsInstallUpdateBtn.textContent = isUpdateDownloaded ? "Neu starten" : "Aktualisieren";
           }
@@ -773,7 +773,7 @@ window.addEventListener("DOMContentLoaded", async () => {
           if (topAppUpdateBanner) topAppUpdateBanner.style.display = "none";
           if (settingsGearBadge) settingsGearBadge.style.display = "none";
           if (settingsInlineUpdatePill) settingsInlineUpdatePill.style.display = "none";
-          if (checkAppUpdateBtn) checkAppUpdateBtn.style.display = "inline-block";
+          if (checkAppUpdateBtn) checkAppUpdateBtn.style.display = "";
           if (settingsInstallUpdateBtn) settingsInstallUpdateBtn.style.display = "none";
           return null;
         }
@@ -783,7 +783,7 @@ window.addEventListener("DOMContentLoaded", async () => {
           if (topAppUpdateBanner) topAppUpdateBanner.style.display = "none";
           if (settingsGearBadge) settingsGearBadge.style.display = "none";
           if (settingsInlineUpdatePill) settingsInlineUpdatePill.style.display = "none";
-          if (checkAppUpdateBtn) checkAppUpdateBtn.style.display = "inline-block";
+          if (checkAppUpdateBtn) checkAppUpdateBtn.style.display = "";
           if (settingsInstallUpdateBtn) settingsInstallUpdateBtn.style.display = "none";
         }
         return null;
@@ -857,19 +857,14 @@ window.addEventListener("DOMContentLoaded", async () => {
     /* ── Update Check ─────────────────── */
 
     let updateTimer: number | null = null;
-    let appUpdateCounter = 0;
     function resetAutoUpdateTimer() {
       if (updateTimer) window.clearInterval(updateTimer);
       updateTimer = window.setInterval(() => {
         if (!isChecking && wowPath) {
           checkUpdates();
         }
-        // Alle ~30 Minuten (alle 15 Zyklen à 2 Min) auch Moonup selbst im Hintergrund prüfen
-        appUpdateCounter++;
-        if (appUpdateCounter >= 15) {
-          appUpdateCounter = 0;
-          checkForAppUpdates(false);
-        }
+        // Moonup alle 2 Minuten geräuschlos im Hintergrund auf neue App-Releases prüfen
+        checkForAppUpdates(false);
       }, 2 * 60 * 1000); // Alle 2 Minuten prüfen (Schnell & Ressourcen-schonend)
     }
 
@@ -1348,10 +1343,23 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     loginBtn.addEventListener("click", startLogin);
     logoutBtn.addEventListener("click", () => logout(false));
-    refreshBtn.addEventListener("click", checkUpdates);
+    refreshBtn.addEventListener("click", () => {
+      checkUpdates();
+      checkForAppUpdates(false);
+    });
     changePathBtn.addEventListener("click", selectPath);
     pathDisplay.addEventListener("click", selectPath);
     openExplorerBtn.addEventListener("click", () => openExplorer());
+
+    // Prüfe beim Fokus / Wiederherstellen aus dem Tray (max. alle 30s)
+    let lastFocusAppCheck = 0;
+    window.addEventListener("focus", () => {
+      const now = Date.now();
+      if (now - lastFocusAppCheck > 30 * 1000) {
+        lastFocusAppCheck = now;
+        checkForAppUpdates(false);
+      }
+    });
 
     /* ── Context Menu Actions ─────────── */
     window.addEventListener("contextmenu", (e) => {
