@@ -625,9 +625,24 @@ window.addEventListener("DOMContentLoaded", async () => {
       };
 
       const updateToInstall = pendingAppUpdate;
+      if (!updateToInstall) return;
 
       try {
-        if (!isUpdateDownloaded) {
+        let installed = false;
+
+        // Falls im Hintergrund vorab geladen und Bytes noch in dieser Instanz vorhanden:
+        if (isUpdateDownloaded && (updateToInstall as any).downloadedBytes) {
+          try {
+            setBtnText("Installiere...");
+            await updateToInstall.install();
+            installed = true;
+          } catch (instErr) {
+            console.warn("Direct install failed, falling back to downloadAndInstall:", instErr);
+          }
+        }
+
+        // Falls noch nicht geladen oder install() fehlschlug:
+        if (!installed) {
           setBtnText("Lade 0%...");
           let downloaded = 0;
           let contentLength = 0;
@@ -650,9 +665,6 @@ window.addEventListener("DOMContentLoaded", async () => {
                 break;
             }
           });
-        } else {
-          setBtnText("Installiere...");
-          await updateToInstall.install();
         }
 
         setBtnText("Neustart...");

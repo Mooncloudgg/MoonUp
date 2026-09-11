@@ -1,6 +1,6 @@
 {
   "productName": "Moonup",
-  "version": "2.1.10",
+  "version": "2.1.11",
   "identifier": "com.mooncloud.moonup",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -32,7 +32,6 @@
     "createUpdaterArtifacts": true,
     "targets": [
       "nsis",
-      "msi",
       "app",
       "dmg"
     ],
