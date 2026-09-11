@@ -14,14 +14,14 @@ export const API_CONFIG = {
   baseUrl: "https://mooncloud.team",
   authLoginUrl: "https://mooncloud.team/auth/login",
   authCheckUrl: "https://mooncloud.team/auth/check",
-  clientVersion: "2.1.9",
+  clientVersion: "2.1.10",
   githubRepo: "Mooncloudgg/MoonUp"
 };
 
 export const TEXTS = {
   app: {
     title: "Moonup",
-    version: "v2.1.9",
+    version: "v2.1.10",
   },
   buttons: {
     login: "Login mit Discord",

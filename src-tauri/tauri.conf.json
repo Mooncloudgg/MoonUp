@@ -1,6 +1,6 @@
 {
   "productName": "Moonup",
-  "version": "2.1.9",
+  "version": "2.1.10",
   "identifier": "com.mooncloud.moonup",
   "build": {
     "beforeDevCommand": "npm run dev",

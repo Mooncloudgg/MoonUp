@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save, ask, message } from "@tauri-apps/plugin-dialog";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
@@ -115,26 +114,7 @@ function formatLastUpdated(timestampStr: string | null): string {
 
 window.addEventListener("DOMContentLoaded", async () => {
   try {
-    const appWindow = getCurrentWindow();
 
-    // Frameless window dragging
-    const appHeader = document.querySelector(".app-header");
-    if (appHeader) {
-      appHeader.addEventListener("mousedown", async (e: Event) => {
-        const me = e as MouseEvent;
-        if (me.button === 0) {
-          const target = me.target as HTMLElement;
-          if (target.closest("button") || target.closest("input")) {
-            return;
-          }
-          try {
-            await appWindow.startDragging();
-          } catch (err) {
-            console.warn("startDragging error:", err);
-          }
-        }
-      });
-    }
 
     // DOM
     const pathDisplay        = document.getElementById("path-display")!;
