@@ -60,6 +60,26 @@ fn set_start_minimized(enabled: bool) {
     save_app_config(&cfg);
 }
 
+fn force_bring_to_front(w: &tauri::WebviewWindow) {
+    let _ = w.show();
+    let _ = w.unminimize();
+    let _ = w.set_focus();
+
+    #[cfg(target_os = "windows")]
+    {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            SetForegroundWindow, ShowWindow, SW_RESTORE,
+        };
+        if let Ok(hwnd) = w.hwnd() {
+            unsafe {
+                let raw_hwnd = hwnd.0 as _;
+                ShowWindow(raw_hwnd, SW_RESTORE);
+                SetForegroundWindow(raw_hwnd);
+            }
+        }
+    }
+}
+
 struct GithubCacheEntry {
     tag: String,
     etag: Option<String>,
@@ -1045,9 +1065,7 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(w) = app.get_webview_window("main") {
-                let _ = w.show();
-                let _ = w.unminimize();
-                let _ = w.set_focus();
+                force_bring_to_front(&w);
             }
         }))
         .plugin(tauri_plugin_window_state::Builder::default().build())
@@ -1087,9 +1105,7 @@ fn main() {
                 .on_menu_event(|app, event| match event.id().as_ref() {
                     "show" => {
                         if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.unminimize();
-                            let _ = w.set_focus();
+                            force_bring_to_front(&w);
                         }
                     }
                     "quit" => {
@@ -1110,9 +1126,7 @@ fn main() {
                                 if visible {
                                     let _ = w.hide();
                                 } else {
-                                    let _ = w.show();
-                                    let _ = w.unminimize();
-                                    let _ = w.set_focus();
+                                    force_bring_to_front(&w);
                                 }
                             }
                         }
