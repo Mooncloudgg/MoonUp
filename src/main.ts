@@ -49,6 +49,12 @@ import timelineLogoUrl from "./assets/timeline_reminders.png";
 
 /* ── Helpers ──────────────────────────── */
 
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))
+  ]);
+}
 
 interface VerifyResult {
   valid: boolean;
@@ -655,7 +661,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       } catch (_) { return false; }
     }
 
-    function logout(kicked = false, reason?: string) {
+    async function logout(kicked = false, reason?: string) {
       if (loginPoll) { clearInterval(loginPoll); loginPoll = null; }
       authToken = "";
       authUser = "";
@@ -665,7 +671,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       updateAuthUI();
       if (kicked) {
         statusArea.textContent = reason || TEXTS.status.denied;
-        alert(reason || "Sitzung beendet: Discord-Rolle fehlt.");
+        await message(reason || "Sitzung beendet: Discord-Rolle fehlt.", { title: "Moonup", kind: "warning" });
       }
     }
 
@@ -720,7 +726,7 @@ window.addEventListener("DOMContentLoaded", async () => {
             updateAuthUI();
           } else if (data.status === "denied") {
             if (loginPoll) { clearInterval(loginPoll); loginPoll = null; }
-            alert("Zugriff verweigert: Dir fehlt die erforderliche Discord-Rolle.");
+            await message("Zugriff verweigert: Dir fehlt die erforderliche Discord-Rolle.", { title: "Moonup Login", kind: "error" });
             setLoginBtnDefault();
           }
         } catch (_) { /* still polling */ }
@@ -989,14 +995,20 @@ window.addEventListener("DOMContentLoaded", async () => {
       resetAutoUpdateTimer();
 
       let hasAnyVersionChanged = false;
+      let authFailed = false;
 
       try {
-        await Promise.all(ADDONS.map(async (addon) => {
+        // Addons einzeln mit 5-Sekunden-Timeout prüfen (verhindert IPC- und Netzwerk-Stau)
+        for (const addon of ADDONS) {
           try {
             // IMMER die lokal installierte Version ermitteln (auch ohne Auth)
-            const localVer: string = await invoke("get_installed_version", {
-              path: wowPath, folder: addon.folder, search: addon.search,
-            });
+            const localVer = await withTimeout<string>(
+              invoke("get_installed_version", {
+                path: wowPath, folder: addon.folder, search: addon.search,
+              }),
+              4000,
+              "Unbekannt"
+            );
             const prevLocal = localStorage.getItem(`version_${addon.folder}`);
             if (prevLocal !== String(localVer)) {
               hasAnyVersionChanged = true;
@@ -1005,130 +1017,138 @@ window.addEventListener("DOMContentLoaded", async () => {
 
             // Nur wenn eingeloggt remote nach Updates suchen
             if (authToken) {
-              const remoteVer: string = await invoke("check_for_updates", {
-                token: authToken, repo: addon.repo, provider: addon.provider,
-              });
+              const remoteVer = await withTimeout<string>(
+                invoke("check_for_updates", {
+                  token: authToken, repo: addon.repo, provider: addon.provider,
+                }),
+                5000,
+                ""
+              );
 
-              if (remoteVer === "AUTH_ERROR") throw new Error("AUTH_ERROR");
-              const prevRemote = localStorage.getItem(`latest_${addon.folder}`);
-              if (prevRemote !== remoteVer) {
-                hasAnyVersionChanged = true;
+              if (remoteVer === "AUTH_ERROR") {
+                if (addon.provider === "mooncloud") {
+                  authFailed = true;
+                }
+              } else if (remoteVer) {
+                const prevRemote = localStorage.getItem(`latest_${addon.folder}`);
+                if (prevRemote !== remoteVer) {
+                  hasAnyVersionChanged = true;
+                }
+                localStorage.setItem(`latest_${addon.folder}`, remoteVer);
               }
-              localStorage.setItem(`latest_${addon.folder}`, remoteVer);
             }
           } catch (e: any) {
             console.error(`Check ${addon.label}:`, e);
-            if (String(e).includes("AUTH_ERROR") || String(e).includes("403")) {
-              throw new Error("AUTH_ERROR");
+            if (addon.provider === "mooncloud" && String(e).includes("AUTH_ERROR")) {
+              authFailed = true;
             }
           }
-        }));
-      } catch (e: any) {
-        if (e.message === "AUTH_ERROR") {
-          logout(true);
-          isChecking = false;
+        }
+
+        if (authFailed) {
+          await logout(true, "Sitzung abgelaufen oder Zugriff verweigert.");
           return;
         }
-      }
 
-      isChecking = false;
-      statusArea.textContent = TEXTS.status.ready;
+        // DOM nur neu aufbauen, wenn sich tatsächlich ein Versionsstand geändert hat (0% CPU Idle)
+        if (hasAnyVersionChanged || !addonList.hasChildNodes()) {
+          renderAddons();
+        }
 
-      // DOM nur neu aufbauen, wenn sich tatsächlich ein Versionsstand geändert hat (0% CPU Idle)
-      if (hasAnyVersionChanged || !addonList.hasChildNodes()) {
-        renderAddons();
-      }
+        // 1. Silent background auto-update für ausgewählte Addons (nur wenn eingeloggt)
+        if (autoBgUpdate && authToken && wowPath) {
+          const targets = ADDONS.filter(a => autoUpdateAddons.includes(a.id) && !isAddonIgnored(a.id));
+          let anyUpdated = false;
+          for (const addon of targets) {
+            const local = localStorage.getItem(`version_${addon.folder}`);
+            const remote = localStorage.getItem(`latest_${addon.folder}`);
+            const installed = local && !["Nicht installiert", "Unbekannt", "-"].includes(local);
+            if (installed && remote && isNewerVersion(local, remote)) {
+              const card = addonList.querySelector(`.addon-card[data-id="${addon.id}"]`) as HTMLElement | null;
+              card?.classList.add("is-updating");
+              statusArea.textContent = `Auto-Update: ${addon.label}...`;
 
-      // 1. Silent background auto-update für ausgewählte Addons (nur wenn eingeloggt)
-      if (autoBgUpdate && authToken && wowPath) {
-        const targets = ADDONS.filter(a => autoUpdateAddons.includes(a.id) && !isAddonIgnored(a.id));
-        let anyUpdated = false;
-        for (const addon of targets) {
+              try {
+                console.log(`[AutoUpdate] Starting background update for ${addon.label}...`);
+                await invoke("install_addon", {
+                  token: authToken,
+                  repo: addon.repo,
+                  name: addon.folder,
+                  path: wowPath,
+                  provider: addon.provider,
+                  directUrl: addon.directUrl || null,
+                  addonId: addon.id,
+                });
+                const newLocal: string = await invoke("get_installed_version", {
+                  path: wowPath,
+                  folder: addon.folder,
+                  search: addon.search,
+                });
+                localStorage.setItem(`version_${addon.folder}`, String(newLocal));
+                localStorage.setItem(`updated_at_${addon.folder}`, String(Date.now()));
+                console.log(`[AutoUpdate] ${addon.label} updated to ${newLocal}`);
+                anyUpdated = true;
+
+                // Notification Logik bei Auto-Update:
+                const isWoW = await invoke<boolean>("is_wow_running");
+                if (isWoW) {
+                  await notifyUser(
+                    "Moonup • Addon aktualisiert",
+                    `${addon.label} wurde im Hintergrund aktualisiert. Gib bitte /reload im Spiel ein.`
+                  );
+                }
+              } catch (err) {
+                console.warn(`[AutoUpdate] Background update for ${addon.label} failed:`, err);
+              } finally {
+                card?.classList.remove("is-updating");
+              }
+            }
+          }
+          if (anyUpdated) {
+            renderAddons();
+          }
+        }
+
+        // 2. Notification Logik für Addons OHNE Auto-Update (oder ausgeloggt)
+        const manualTargets = ADDONS.filter(a => {
+          const isAuto = autoBgUpdate && autoUpdateAddons.includes(a.id) && !isAddonIgnored(a.id) && !!authToken;
+          return !isAuto;
+        });
+
+        for (const addon of manualTargets) {
           const local = localStorage.getItem(`version_${addon.folder}`);
           const remote = localStorage.getItem(`latest_${addon.folder}`);
           const installed = local && !["Nicht installiert", "Unbekannt", "-"].includes(local);
           if (installed && remote && isNewerVersion(local, remote)) {
-            const card = addonList.querySelector(`.addon-card[data-id="${addon.id}"]`) as HTMLElement | null;
-            card?.classList.add("is-updating");
-            statusArea.textContent = `Auto-Update: ${addon.label}...`;
-
-            try {
-              console.log(`[AutoUpdate] Starting background update for ${addon.label}...`);
-              await invoke("install_addon", {
-                token: authToken,
-                repo: addon.repo,
-                name: addon.folder,
-                path: wowPath,
-                provider: addon.provider,
-                directUrl: addon.directUrl || null,
-              });
-              const newLocal: string = await invoke("get_installed_version", {
-                path: wowPath,
-                folder: addon.folder,
-                search: addon.search,
-              });
-              localStorage.setItem(`version_${addon.folder}`, String(newLocal));
-              localStorage.setItem(`updated_at_${addon.folder}`, String(Date.now()));
-              console.log(`[AutoUpdate] ${addon.label} updated to ${newLocal}`);
-              anyUpdated = true;
-
-              // Notification Logik bei Auto-Update:
+            const notifyKey = `${addon.id}@${remote}`;
+            if (!notifiedAddonVersions.has(notifyKey)) {
+              notifiedAddonVersions.add(notifyKey);
               const isWoW = await invoke<boolean>("is_wow_running");
               if (isWoW) {
-                // Fall 1: Auto Update aktiv & WoW läuft -> Gib /reload im Spiel ein
                 await notifyUser(
-                  "Moonup • Addon aktualisiert",
-                  `${addon.label} wurde im Hintergrund aktualisiert. Gib bitte /reload im Spiel ein.`
+                  "Moonup • Update verfügbar",
+                  `Bitte Update für ${addon.label} (v${remote}) herunterladen und /reload eingeben.`
+                );
+              } else {
+                await notifyUser(
+                  "Moonup • Update verfügbar",
+                  `Eine neue Version von ${addon.label} (v${remote}) ist verfügbar!`
                 );
               }
-              // Fall 2: Auto Update aktiv & WoW läuft NICHT -> Kein Hinweis (stilles Update!)
-            } catch (err) {
-              console.warn(`[AutoUpdate] Background update for ${addon.label} failed:`, err);
-            } finally {
-              card?.classList.remove("is-updating");
             }
           }
         }
-        if (anyUpdated) {
-          statusArea.textContent = TEXTS.status.done;
-          renderAddons();
+
+        // Bridge synchronisieren (aktualisiert auch Entwickler-Status)
+        await syncBridge(autoBgUpdate && autoUpdateAddons.includes("mooncloud-tools"));
+      } catch (err) {
+        console.error("Update check error:", err);
+      } finally {
+        isChecking = false;
+        if (statusArea.textContent === TEXTS.status.searching || statusArea.textContent?.startsWith("Auto-Update")) {
+          statusArea.textContent = TEXTS.status.ready;
         }
       }
-
-      // 2. Notification Logik für Addons OHNE Auto-Update (oder ausgeloggt)
-      const manualTargets = ADDONS.filter(a => {
-        const isAuto = autoBgUpdate && autoUpdateAddons.includes(a.id) && !isAddonIgnored(a.id) && !!authToken;
-        return !isAuto;
-      });
-
-      for (const addon of manualTargets) {
-        const local = localStorage.getItem(`version_${addon.folder}`);
-        const remote = localStorage.getItem(`latest_${addon.folder}`);
-        const installed = local && !["Nicht installiert", "Unbekannt", "-"].includes(local);
-        if (installed && remote && isNewerVersion(local, remote)) {
-          const notifyKey = `${addon.id}@${remote}`;
-          if (!notifiedAddonVersions.has(notifyKey)) {
-            notifiedAddonVersions.add(notifyKey);
-            const isWoW = await invoke<boolean>("is_wow_running");
-            if (isWoW) {
-              // Fall 3: Kein Auto Update & WoW läuft -> Bitte Update herunterladen und /reload
-              await notifyUser(
-                "Moonup • Update verfügbar",
-                `Bitte Update für ${addon.label} (v${remote}) herunterladen und /reload eingeben.`
-              );
-            } else {
-              // Fall 4: Kein Auto Update & WoW läuft NICHT -> Eine neue Version ist verfügbar!
-              await notifyUser(
-                "Moonup • Update verfügbar",
-                `Eine neue Version von ${addon.label} (v${remote}) ist verfügbar!`
-              );
-            }
-          }
-        }
-      }
-
-      // Bridge synchronisieren (aktualisiert auch Entwickler-Status)
-      await syncBridge(autoBgUpdate && autoUpdateAddons.includes("mooncloud-tools"));
     }
 
     /* ── Install / Update ─────────────── */

@@ -114,11 +114,24 @@ pub struct RestoreStats {
     pub total_bytes: u64,
 }
 
-fn get_http_client() -> Client {
+fn get_api_client() -> Client {
     Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
+        .connect_timeout(std::time::Duration::from_secs(3))
+        .timeout(std::time::Duration::from_secs(5))
         .build()
         .unwrap_or_else(|_| Client::new())
+}
+
+fn get_download_client() -> Client {
+    Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(5))
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .unwrap_or_else(|_| Client::new())
+}
+
+fn get_http_client() -> Client {
+    get_api_client()
 }
 
 fn resolve_addon_path(user_path: &str) -> PathBuf {
@@ -376,20 +389,15 @@ fn get_installed_version(path: String, folder: String, _search: String) -> Strin
 
 #[tauri::command]
 fn check_for_updates(token: String, repo: String, provider: Option<String>) -> Result<String, String> {
-    let client = get_http_client();
+    let client = get_api_client();
     let prov = provider.unwrap_or_else(|| "mooncloud".to_string());
 
     if prov == "curseforge" {
-        // Query CurseForge API - prefer stable releases (releaseType == 1)
-        let url = format!("https://api.curseforge.com/v1/mods/{}/files?pageSize=10", repo);
-        let res = client.get(&url)
-            .header(USER_AGENT, APP_USER_AGENT)
-            .header("x-api-key", CF_API_KEY)
-            .send();
-
-        if let Ok(resp) = res {
-            if resp.status().is_success() {
-                if let Ok(json) = resp.json::<serde_json::Value>() {
+        // 1. Check curse.tools mirror first (fast & reliable)
+        let fallback_url = format!("https://api.curse.tools/v1/cf/mods/{}/files", repo);
+        if let Ok(f_resp) = client.get(&fallback_url).header(USER_AGENT, APP_USER_AGENT).send() {
+            if f_resp.status().is_success() {
+                if let Ok(json) = f_resp.json::<serde_json::Value>() {
                     if let Some(files) = json["data"].as_array() {
                         let target = files.iter().find(|f| f["releaseType"].as_u64() == Some(1))
                             .or_else(|| files.first());
@@ -406,17 +414,20 @@ fn check_for_updates(token: String, repo: String, provider: Option<String>) -> R
             }
         }
 
-        // Fallback: Curse.tools mirror
-        let fallback_url = format!("https://api.curse.tools/v1/cf/mods/{}/files", repo);
-        if let Ok(f_resp) = client.get(&fallback_url).header(USER_AGENT, APP_USER_AGENT).send() {
-            if f_resp.status().is_success() {
-                if let Ok(json) = f_resp.json::<serde_json::Value>() {
+        // 2. Fallback: CurseForge API directly
+        let url = format!("https://api.curseforge.com/v1/mods/{}/files?pageSize=10", repo);
+        if let Ok(resp) = client.get(&url).header(USER_AGENT, APP_USER_AGENT).header("x-api-key", CF_API_KEY).send() {
+            if resp.status().is_success() {
+                if let Ok(json) = resp.json::<serde_json::Value>() {
                     if let Some(files) = json["data"].as_array() {
                         let target = files.iter().find(|f| f["releaseType"].as_u64() == Some(1))
                             .or_else(|| files.first());
                         if let Some(first_file) = target {
                             if let Some(display_name) = first_file["displayName"].as_str() {
                                 return Ok(display_name.to_string());
+                            }
+                            if let Some(file_name) = first_file["fileName"].as_str() {
+                                return Ok(file_name.replace(".zip", ""));
                             }
                         }
                     }
@@ -522,7 +533,7 @@ fn install_addon(app: tauri::AppHandle, token: String, repo: String, _name: Stri
     if token.trim().is_empty() {
         return Err("Login erforderlich. Bitte zuerst mit Discord anmelden.".to_string());
     }
-    let client = get_http_client();
+    let client = get_download_client();
     let prov = provider.unwrap_or_else(|| "mooncloud".to_string());
     let aid = addon_id.unwrap_or_else(|| repo.clone());
 
@@ -532,44 +543,42 @@ fn install_addon(app: tauri::AppHandle, token: String, repo: String, _name: Stri
             .send()
             .map_err(|e| format!("Download-Fehler: {}", e))?
     } else if prov == "curseforge" {
-        // Fetch latest stable release file info from CurseForge
-        let url = format!("https://api.curseforge.com/v1/mods/{}/files?pageSize=10", repo);
-        let cf_res = client.get(&url)
-            .header(USER_AGENT, APP_USER_AGENT)
-            .header("x-api-key", CF_API_KEY)
-            .send()
-            .map_err(|e| format!("CurseForge Abruf fehlgeschlagen: {}", e))?;
-
         let mut dl_url = String::new();
-        if cf_res.status().is_success() {
-            if let Ok(json) = cf_res.json::<serde_json::Value>() {
-                if let Some(files) = json["data"].as_array() {
-                    let target = files.iter().find(|f| f["releaseType"].as_u64() == Some(1))
-                        .or_else(|| files.first());
-                    if let Some(first_file) = target {
-                        if let Some(url_str) = first_file["downloadUrl"].as_str() {
-                            dl_url = url_str.to_string();
-                        } else if let (Some(file_id), Some(file_name)) = (first_file["id"].as_u64(), first_file["fileName"].as_str()) {
-                            // Construct standard Curse CDN Edge URL
-                            dl_url = format!("https://edge.forgecdn.net/files/{}/{}/{}", file_id / 1000, file_id % 1000, file_name);
+
+        // 1. Try curse.tools mirror first (fast & reliable)
+        let fallback_url = format!("https://api.curse.tools/v1/cf/mods/{}/files", repo);
+        if let Ok(f_resp) = client.get(&fallback_url).header(USER_AGENT, APP_USER_AGENT).send() {
+            if f_resp.status().is_success() {
+                if let Ok(json) = f_resp.json::<serde_json::Value>() {
+                    if let Some(files) = json["data"].as_array() {
+                        let target = files.iter().find(|f| f["releaseType"].as_u64() == Some(1))
+                            .or_else(|| files.first());
+                        if let Some(first_file) = target {
+                            if let Some(url_str) = first_file["downloadUrl"].as_str() {
+                                dl_url = url_str.to_string();
+                            } else if let (Some(file_id), Some(file_name)) = (first_file["id"].as_u64(), first_file["fileName"].as_str()) {
+                                dl_url = format!("https://edge.forgecdn.net/files/{}/{}/{}", file_id / 1000, file_id % 1000, file_name);
+                            }
                         }
                     }
                 }
             }
         }
 
+        // 2. Fallback to CurseForge official API
         if dl_url.is_empty() {
-            // Fallback to curse.tools
-            let fallback_url = format!("https://api.curse.tools/v1/cf/mods/{}/files", repo);
-            if let Ok(f_resp) = client.get(&fallback_url).header(USER_AGENT, APP_USER_AGENT).send() {
-                if f_resp.status().is_success() {
-                    if let Ok(json) = f_resp.json::<serde_json::Value>() {
+            let url = format!("https://api.curseforge.com/v1/mods/{}/files?pageSize=10", repo);
+            if let Ok(cf_res) = client.get(&url).header(USER_AGENT, APP_USER_AGENT).header("x-api-key", CF_API_KEY).send() {
+                if cf_res.status().is_success() {
+                    if let Ok(json) = cf_res.json::<serde_json::Value>() {
                         if let Some(files) = json["data"].as_array() {
                             let target = files.iter().find(|f| f["releaseType"].as_u64() == Some(1))
                                 .or_else(|| files.first());
                             if let Some(first_file) = target {
                                 if let Some(url_str) = first_file["downloadUrl"].as_str() {
                                     dl_url = url_str.to_string();
+                                } else if let (Some(file_id), Some(file_name)) = (first_file["id"].as_u64(), first_file["fileName"].as_str()) {
+                                    dl_url = format!("https://edge.forgecdn.net/files/{}/{}/{}", file_id / 1000, file_id % 1000, file_name);
                                 }
                             }
                         }
@@ -823,19 +832,45 @@ fn sync_addon_bridge(path: String, auto_update_enabled: bool, is_dev_version: bo
 fn is_wow_running() -> bool {
     #[cfg(target_os = "windows")]
     {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        let output = std::process::Command::new("tasklist")
-            .args(["/NH", "/FO", "CSV"])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output();
-        if let Ok(out) = output {
-            let text = String::from_utf8_lossy(&out.stdout).to_lowercase();
-            return text.contains("wow.exe")
-                || text.contains("wowclassic.exe")
-                || text.contains("wow_classic.exe")
-                || text.contains("wowt.exe")
-                || text.contains("wowb.exe");
+        use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
+        use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+            CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32, TH32CS_SNAPPROCESS,
+        };
+
+        unsafe {
+            let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+            if snapshot == INVALID_HANDLE_VALUE {
+                return false;
+            }
+
+            let mut entry: PROCESSENTRY32 = std::mem::zeroed();
+            entry.dwSize = std::mem::size_of::<PROCESSENTRY32>() as u32;
+
+            let mut found = false;
+            if Process32First(snapshot, &mut entry) != 0 {
+                loop {
+                    let len = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(entry.szExeFile.len());
+                    let exe_bytes: Vec<u8> = entry.szExeFile[..len].iter().map(|&c| c as u8).collect();
+                    let exe_name = String::from_utf8_lossy(&exe_bytes).to_lowercase();
+
+                    if exe_name == "wow.exe"
+                        || exe_name == "wowclassic.exe"
+                        || exe_name == "wow_classic.exe"
+                        || exe_name == "wowt.exe"
+                        || exe_name == "wowb.exe"
+                    {
+                        found = true;
+                        break;
+                    }
+
+                    if Process32Next(snapshot, &mut entry) == 0 {
+                        break;
+                    }
+                }
+            }
+
+            CloseHandle(snapshot);
+            return found;
         }
     }
     #[cfg(target_os = "macos")]
@@ -849,7 +884,9 @@ fn is_wow_running() -> bool {
                 || text.contains("wow") 
                 || text.contains("wowclassic");
         }
+        false
     }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     false
 }
 
@@ -1068,7 +1105,15 @@ fn main() {
                 force_bring_to_front(&w);
             }
         }))
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::SIZE
+                        | tauri_plugin_window_state::StateFlags::POSITION
+                        | tauri_plugin_window_state::StateFlags::MAXIMIZED,
+                )
+                .build(),
+        )
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -1078,12 +1123,15 @@ fn main() {
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec!["--minimized"])))
         .setup(|app| {
             let args: Vec<String> = std::env::args().collect();
-            if args.iter().any(|a| a == "--minimized") {
-                let cfg = load_app_config();
-                if cfg.start_minimized {
-                    if let Some(w) = app.get_webview_window("main") {
-                        let _ = w.hide();
-                    }
+            let is_minimized_arg = args.iter().any(|a| a == "--minimized");
+            let cfg = load_app_config();
+
+            if let Some(w) = app.get_webview_window("main") {
+                if is_minimized_arg && cfg.start_minimized {
+                    let _ = w.hide();
+                } else {
+                    let _ = w.show();
+                    let _ = w.unminimize();
                 }
             }
 

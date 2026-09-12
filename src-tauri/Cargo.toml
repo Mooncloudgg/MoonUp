@@ -1,6 +1,6 @@
 [package]
 name = "moonup"
-version = "2.2.1"
+version = "2.2.2"
 description = "A lightweight WoW Addon Manager"
 authors = ["you"]
 edition = "2021"
@@ -26,4 +26,9 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-window-state = "2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation"] }
+windows-sys = { version = "0.59", features = [
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Foundation",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Threading"
+] }
