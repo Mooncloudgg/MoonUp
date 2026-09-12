@@ -8,20 +8,21 @@ export interface AddonItem {
   directUrl?: string;
   icon?: string;
   fallbackInitials?: string;
+  dependencies?: string[];
 }
 
 export const API_CONFIG = {
   baseUrl: "https://mooncloud.team",
   authLoginUrl: "https://mooncloud.team/auth/login",
   authCheckUrl: "https://mooncloud.team/auth/check",
-  clientVersion: "2.1.11",
+  clientVersion: "2.2.0",
   githubRepo: "Mooncloudgg/MoonUp"
 };
 
 export const TEXTS = {
   app: {
     title: "Moonup",
-    version: "v2.1.11",
+    version: "v2.2.0",
   },
   buttons: {
     login: "Login mit Discord",

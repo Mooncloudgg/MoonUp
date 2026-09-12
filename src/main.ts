@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { open, save, ask, message } from "@tauri-apps/plugin-dialog";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
@@ -53,6 +54,14 @@ interface VerifyResult {
   valid: boolean;
   status: number;
   message: string;
+}
+
+interface AddonProgressPayload {
+  id: string;
+  stage: string;
+  downloaded: number;
+  total: number;
+  percent: number;
 }
 
 const DISCORD_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.893.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>`;
@@ -156,6 +165,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const startMinimizedItem = document.getElementById("start-minimized-item") as HTMLDivElement;
     const startMinimizedCb   = document.getElementById("start-minimized-cb") as HTMLInputElement;
     const exportBackupBtn    = document.getElementById("export-backup-btn") as HTMLButtonElement;
+    const importBackupBtn    = document.getElementById("import-backup-btn") as HTMLButtonElement;
 
     // Top-Bar In-App Update Banner
     const topAppUpdateBanner       = document.getElementById("top-app-update-banner") as HTMLDivElement;
@@ -236,6 +246,22 @@ window.addEventListener("DOMContentLoaded", async () => {
       await invoke("set_close_to_tray", { enabled: closeToTray });
       await invoke("set_start_minimized", { enabled: startMinimized });
     } catch (_) {}
+
+    // Listen to real-time Addon Download & Unpack progress
+    await listen<AddonProgressPayload>("addon-progress", (event) => {
+      const payload = event.payload;
+      const card = addonList.querySelector(`.addon-card[data-id="${payload.id}"]`);
+      const btn = card?.querySelector(".install-btn") as HTMLButtonElement | null;
+      if (!btn) return;
+
+      if (payload.stage === "downloading") {
+        btn.textContent = `Lade ${payload.percent}%`;
+        statusArea.textContent = `Lade ${payload.id} herunter (${payload.percent}%)...`;
+      } else if (payload.stage === "unpacking") {
+        btn.textContent = "Entpacken...";
+        statusArea.textContent = `Entpacke ${payload.id}...`;
+      }
+    });
 
     function updateBgStatus() {
       if (bgUpdateStatusText) {
@@ -469,6 +495,101 @@ window.addEventListener("DOMContentLoaded", async () => {
       } finally {
         exportBackupBtn.disabled = false;
         exportBackupBtn.textContent = "Exportieren";
+      }
+    });
+  }
+
+  if (importBackupBtn) {
+    importBackupBtn.addEventListener("click", async () => {
+      if (!wowPath) {
+        await message("Bitte wähle zuerst deinen WoW-Pfad aus.", { title: "Moonup", kind: "warning" });
+        return;
+      }
+
+      function showWowRunningDialog(): Promise<boolean> {
+        return new Promise((resolve) => {
+          const modal = document.getElementById("wow-running-modal");
+          const cancelBtn = document.getElementById("wow-running-cancel");
+          const proceedBtn = document.getElementById("wow-running-proceed");
+          if (!modal || !cancelBtn || !proceedBtn) {
+            resolve(true);
+            return;
+          }
+
+          modal.style.display = "flex";
+
+          const cleanup = (result: boolean) => {
+            modal.style.display = "none";
+            cancelBtn.removeEventListener("click", onCancel);
+            proceedBtn.removeEventListener("click", onProceed);
+            modal.removeEventListener("click", onBackdrop);
+            resolve(result);
+          };
+
+          const onCancel = () => cleanup(false);
+          const onProceed = () => cleanup(true);
+          const onBackdrop = (e: MouseEvent) => {
+            if (e.target === modal) cleanup(false);
+          };
+
+          cancelBtn.addEventListener("click", onCancel);
+          proceedBtn.addEventListener("click", onProceed);
+          modal.addEventListener("click", onBackdrop);
+        });
+      }
+
+      // Prüfen, ob WoW noch läuft
+      try {
+        const isWoW = await invoke<boolean>("is_wow_running");
+        if (isWoW) {
+          const proceed = await showWowRunningDialog();
+          if (!proceed) return;
+        }
+      } catch (e) {
+        console.warn("is_wow_running check failed:", e);
+      }
+
+      try {
+        const selected = await open({
+          title: "WoW UI-Backup ZIP-Archiv auswählen",
+          multiple: false,
+          directory: false,
+          filters: [{ name: "ZIP-Archiv", extensions: ["zip"] }]
+        });
+
+        if (!selected) return;
+        const zipPath = typeof selected === "string" ? selected : (selected as any).path;
+        if (!zipPath) return;
+
+        const confirmed = await ask(
+          "Möchtest du dieses Backup wirklich wiederherstellen?\n\nBestehende Addons und WTF-Einstellungen im gewählten WoW-Ordner werden dabei überschrieben bzw. aktualisiert.",
+          { title: "WoW UI-Backup wiederherstellen", kind: "warning" }
+        );
+        if (!confirmed) return;
+
+        importBackupBtn.disabled = true;
+        importBackupBtn.textContent = "Entpacke...";
+        statusArea.textContent = "Stelle WoW UI-Backup wieder her...";
+
+        const result: { files_restored: number; total_bytes: number } = await invoke("restore_wow_backup", {
+          wowPath: wowPath,
+          zipPath: zipPath,
+        });
+
+        const mb = (result.total_bytes / (1024 * 1024)).toFixed(1);
+        statusArea.textContent = `Backup erfolgreich wiederhergestellt (${result.files_restored} Dateien, ${mb} MB) ✓`;
+        await message(
+          `Backup erfolgreich wiederhergestellt!\n\nDateien: ${result.files_restored}\nEntpackt: ${mb} MB`,
+          { title: "Moonup Backup", kind: "info" }
+        );
+        await checkUpdates();
+      } catch (err: any) {
+        console.error("Restore Fehler:", err);
+        await message("Fehler beim Wiederherstellen des Backups:\n" + err, { title: "Moonup Backup Fehler", kind: "error" });
+        statusArea.textContent = "Wiederherstellung fehlgeschlagen.";
+      } finally {
+        importBackupBtn.disabled = false;
+        importBackupBtn.textContent = "Wiederherstellen";
       }
     });
   }
@@ -1016,6 +1137,42 @@ window.addEventListener("DOMContentLoaded", async () => {
       if (!authToken) { alert("Bitte zuerst einloggen."); return; }
       if (!wowPath) { alert("Bitte WoW-Pfad wählen."); return; }
 
+      // Check dependencies
+      if (addon.dependencies && addon.dependencies.length > 0) {
+        for (const depId of addon.dependencies) {
+          const depAddon = ADDONS.find(a => a.id === depId);
+          if (depAddon) {
+            let depLocal = localStorage.getItem(`version_${depAddon.folder}`);
+            if (!depLocal || depLocal === "Ordner fehlt" || depLocal === "Nicht installiert") {
+              const installDep = await ask(
+                `"${addon.label}" benötigt "${depAddon.label}".\n\nMöchtest du "${depAddon.label}" jetzt zuerst installieren?`,
+                { title: "Benötigte Abhängigkeit", kind: "info" }
+              );
+              if (installDep) {
+                const depCard = addonList.querySelector(`.addon-card[data-id="${depId}"]`);
+                const depBtn = depCard?.querySelector(".install-btn") as HTMLButtonElement | null;
+                if (depBtn) {
+                  await installAddon(depAddon, depBtn);
+                } else {
+                  // Direct install without button
+                  try {
+                    await invoke("install_addon", {
+                      token: authToken, repo: depAddon.repo, name: depAddon.folder,
+                      path: wowPath, provider: depAddon.provider, directUrl: depAddon.directUrl || null,
+                      addonId: depAddon.id,
+                    });
+                    localStorage.setItem(`updated_at_${depAddon.folder}`, String(Date.now()));
+                  } catch (e) {
+                    alert(`Konnte Abhängigkeit ${depAddon.label} nicht installieren: ${e}`);
+                    return;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
       const ok = await validateSession();
       if (!ok) return;
 
@@ -1030,6 +1187,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         await invoke("install_addon", {
           token: authToken, repo: addon.repo, name: addon.folder,
           path: wowPath, provider: addon.provider, directUrl: addon.directUrl || null,
+          addonId: addon.id,
         });
         localStorage.setItem(`updated_at_${addon.folder}`, String(Date.now()));
         statusArea.textContent = `${addon.label} ${TEXTS.status.done}`;
@@ -1050,15 +1208,34 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     async function uninstallAddon(addon: AddonItem) {
       if (!wowPath) return;
-      if (await ask(TEXTS.dialogs.deleteConfirm(addon.label), { kind: "warning" })) {
-        try {
-          await invoke("uninstall_addon", { path: wowPath, name: addon.folder });
-          localStorage.setItem(`version_${addon.folder}`, "Nicht installiert");
-          localStorage.removeItem(`updated_at_${addon.folder}`);
-          statusArea.textContent = `${addon.label} ${TEXTS.status.deleted}`;
-          renderAddons();
-        } catch (e) { alert("Fehler: " + e); }
+
+      // Check if any installed addon depends on this addon
+      const dependentAddons = ADDONS.filter(a => {
+        if (!a.dependencies || !a.dependencies.includes(addon.id)) return false;
+        let local = localStorage.getItem(`version_${a.folder}`);
+        return local && !["Nicht installiert", "Unbekannt", "-", "Ordner fehlt"].includes(local);
+      });
+
+      if (dependentAddons.length > 0) {
+        const names = dependentAddons.map(a => a.label).join(", ");
+        const proceed = await ask(
+          `Achtung: "${names}" benötigt "${addon.label}".\n\nWenn du "${addon.label}" löschst, funktioniert "${names}" möglicherweise nicht mehr ordnungsgemäß.\n\nTrotzdem löschen?`,
+          { title: "Abhängigkeit erkannt", kind: "warning" }
+        );
+        if (!proceed) return;
+      } else {
+        if (!await ask(TEXTS.dialogs.deleteConfirm(addon.label), { kind: "warning" })) {
+          return;
+        }
       }
+
+      try {
+        await invoke("uninstall_addon", { path: wowPath, name: addon.folder });
+        localStorage.setItem(`version_${addon.folder}`, "Nicht installiert");
+        localStorage.removeItem(`updated_at_${addon.folder}`);
+        statusArea.textContent = `${addon.label} ${TEXTS.status.deleted}`;
+        renderAddons();
+      } catch (e) { alert("Fehler: " + e); }
     }
 
     /* ── Render ────────────────────────── */
@@ -1141,6 +1318,15 @@ window.addEventListener("DOMContentLoaded", async () => {
              </div>`
           : "";
 
+        // Dependency label
+        let depHtml = "";
+        if (addon.dependencies && addon.dependencies.length > 0) {
+          const depLabels = addon.dependencies
+            .map(depId => ADDONS.find(a => a.id === depId)?.label || depId)
+            .join(", ");
+          depHtml = `<div class="addon-dep-badge" title="Benötigt ${depLabels}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg> Benötigt: ${depLabels}</div>`;
+        }
+
         return `
           <div class="addon-card ${ignored ? "is-paused" : ""}" data-id="${addon.id}">
             <div class="card-left">
@@ -1150,6 +1336,7 @@ window.addEventListener("DOMContentLoaded", async () => {
                 <div class="card-version-row">
                   ${versionHtml}
                 </div>
+                ${depHtml}
                 ${updatedHtml}
               </div>
             </div>
@@ -1384,6 +1571,7 @@ window.addEventListener("DOMContentLoaded", async () => {
           path: wowPath,
           provider: targetAddon.provider,
           directUrl: targetAddon.directUrl || null,
+          addonId: targetAddon.id,
         });
         statusArea.textContent = `${targetAddon.label} erfolgreich neu installiert ✓`;
         await checkUpdates();
@@ -1440,6 +1628,7 @@ window.addEventListener("DOMContentLoaded", async () => {
           await invoke("install_addon", {
             token: authToken, repo: addon.repo, name: addon.folder,
             path: wowPath, provider: addon.provider, directUrl: addon.directUrl || null,
+            addonId: addon.id,
           });
           localStorage.setItem(`updated_at_${addon.folder}`, String(Date.now()));
         } catch (e) {

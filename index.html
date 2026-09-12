@@ -188,7 +188,7 @@
         <div class="setting-item">
           <span>Version</span>
           <div style="display:flex; align-items:center; gap:8px; height:24px;">
-            <span id="app-version-label" style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-muted); line-height:1;">v2.1.11</span>
+            <span id="app-version-label" style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-muted); line-height:1;">v2.2.0</span>
             <span id="settings-inline-update-pill" class="settings-inline-update-pill" style="display:none;">
               <span class="update-pulse-dot" style="width:5px; height:5px;"></span>
               <span id="settings-inline-update-text">v...</span>
@@ -201,9 +201,12 @@
         <div class="setting-backup-section">
           <div class="setting-backup-info">
             <span class="setting-backup-title">WoW UI-Backup (ZIP)</span>
-            <span class="setting-backup-desc">Exportiert Interface & WTF als ZIP-Archiv</span>
+            <span class="setting-backup-desc">Sichert oder stellt Interface & WTF wieder her</span>
           </div>
-          <button id="export-backup-btn" class="btn-ghost-small">Exportieren</button>
+          <div style="display:flex; gap:6px;">
+            <button id="import-backup-btn" class="btn-ghost-small" title="Backup wiederherstellen">Wiederherstellen</button>
+            <button id="export-backup-btn" class="btn-ghost-small" title="Backup als ZIP exportieren">Exportieren</button>
+          </div>
         </div>
 
         <div style="border-top:1px solid var(--border-subtle); padding-top:12px;">

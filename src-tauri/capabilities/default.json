@@ -28,6 +28,7 @@
     "process:default",
     "process:allow-restart",
     "notification:default",
+    "window-state:default",
     {
       "identifier": "fs:scope",
       "allow": ["**"]

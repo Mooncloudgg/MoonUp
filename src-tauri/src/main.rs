@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WindowEvent,
+    Emitter, Manager, WindowEvent,
 };
 use tauri_plugin_autostart::MacosLauncher;
 
@@ -77,6 +77,21 @@ pub struct VerifyResult {
     pub valid: bool,
     pub status: u16,
     pub message: String,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct AddonProgressPayload {
+    pub id: String,
+    pub stage: String,
+    pub downloaded: u64,
+    pub total: u64,
+    pub percent: u8,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RestoreStats {
+    pub files_restored: usize,
+    pub total_bytes: u64,
 }
 
 fn get_http_client() -> Client {
@@ -481,14 +496,17 @@ fn check_for_updates(token: String, repo: String, provider: Option<String>) -> R
 }
 
 #[tauri::command]
-fn install_addon(token: String, repo: String, _name: String, path: String, provider: Option<String>, direct_url: Option<String>) -> Result<(), String> {
+fn install_addon(app: tauri::AppHandle, token: String, repo: String, _name: String, path: String, provider: Option<String>, direct_url: Option<String>, addon_id: Option<String>) -> Result<(), String> {
+    use std::io::Read;
+
     if token.trim().is_empty() {
         return Err("Login erforderlich. Bitte zuerst mit Discord anmelden.".to_string());
     }
     let client = get_http_client();
     let prov = provider.unwrap_or_else(|| "mooncloud".to_string());
+    let aid = addon_id.unwrap_or_else(|| repo.clone());
 
-    let resp = if let Some(url) = direct_url {
+    let mut resp = if let Some(url) = direct_url {
         client.get(&url)
             .header(USER_AGENT, APP_USER_AGENT)
             .send()
@@ -606,7 +624,55 @@ fn install_addon(token: String, repo: String, _name: String, path: String, provi
         return Err(format!("Download-Server Fehler: {}", status));
     }
 
-    let bytes = resp.bytes().map_err(|e| format!("Fehler beim Lesen der Daten: {}", e))?;
+    let total_size = resp.content_length().unwrap_or(0);
+    let mut downloaded: u64 = 0;
+    let mut bytes = Vec::with_capacity(if total_size > 0 { total_size as usize } else { 1024 * 1024 });
+    let mut chunk = [0u8; 32 * 1024];
+    let mut last_emit = Instant::now();
+
+    // Initial progress event
+    let _ = app.emit("addon-progress", AddonProgressPayload {
+        id: aid.clone(),
+        stage: "downloading".to_string(),
+        downloaded: 0,
+        total: total_size,
+        percent: 0,
+    });
+
+    loop {
+        let n = resp.read(&mut chunk).map_err(|e| format!("Download-Lesefehler: {}", e))?;
+        if n == 0 {
+            break;
+        }
+        bytes.extend_from_slice(&chunk[..n]);
+        downloaded += n as u64;
+
+        if last_emit.elapsed() >= Duration::from_millis(80) || downloaded == total_size {
+            let percent = if total_size > 0 {
+                ((downloaded as f64 / total_size as f64) * 100.0).clamp(0.0, 100.0) as u8
+            } else {
+                0
+            };
+            let _ = app.emit("addon-progress", AddonProgressPayload {
+                id: aid.clone(),
+                stage: "downloading".to_string(),
+                downloaded,
+                total: total_size,
+                percent,
+            });
+            last_emit = Instant::now();
+        }
+    }
+
+    // Emit unpacking stage
+    let _ = app.emit("addon-progress", AddonProgressPayload {
+        id: aid.clone(),
+        stage: "unpacking".to_string(),
+        downloaded,
+        total: total_size,
+        percent: 100,
+    });
+
     let addon_dir = resolve_addon_path(&path);
     if !addon_dir.exists() { 
         fs::create_dir_all(&addon_dir).map_err(|e| format!("Konnte Addon-Verzeichnis nicht erstellen: {}", e))?; 
@@ -871,6 +937,110 @@ fn export_wow_backup(wow_path: String, target_zip_path: String) -> Result<u64, S
     Ok(final_size)
 }
 
+#[tauri::command]
+fn restore_wow_backup(wow_path: String, zip_path: String) -> Result<RestoreStats, String> {
+    use std::fs::File;
+    use std::io::Read;
+
+    let addon_dir = resolve_addon_path(&wow_path);
+    let interface_dir = if addon_dir.file_name().map_or(false, |n| n.to_string_lossy().eq_ignore_ascii_case("addons")) {
+        addon_dir.parent().unwrap_or(&addon_dir).to_path_buf()
+    } else {
+        addon_dir.clone()
+    };
+    let retail_dir = interface_dir.parent().unwrap_or(&interface_dir).to_path_buf();
+    let canonical_retail = retail_dir.canonicalize().unwrap_or_else(|_| retail_dir.clone());
+
+    let zip_file = File::open(&zip_path).map_err(|e| format!("Konnte ZIP-Datei nicht öffnen: {}", e))?;
+    let mut zip = zip::ZipArchive::new(zip_file).map_err(|e| format!("Ungültiges oder beschädigtes ZIP-Archiv: {}", e))?;
+
+    // Validate that archive looks like a WoW UI Backup (contains interface/ or wtf/)
+    let mut contains_wow_folders = false;
+    for i in 0..zip.len() {
+        if let Ok(entry) = zip.by_index(i) {
+            let name_lower = entry.name().to_lowercase();
+            if name_lower.starts_with("interface/") || name_lower.starts_with("wtf/") || name_lower.starts_with("interface\\") || name_lower.starts_with("wtf\\") {
+                contains_wow_folders = true;
+                break;
+            }
+        }
+    }
+
+    if !contains_wow_folders {
+        return Err("Das Archiv enthält weder einen 'Interface'- noch einen 'WTF'-Ordner.".to_string());
+    }
+
+    let mut files_restored = 0usize;
+    let mut total_bytes = 0u64;
+    let mut buffer = vec![0u8; 64 * 1024];
+
+    for i in 0..zip.len() {
+        let mut file = zip.by_index(i).map_err(|e| e.to_string())?;
+
+        // Skip unix symlinks
+        #[cfg(unix)]
+        if let Some(mode) = file.unix_mode() {
+            if (mode & 0o170000) == 0o120000 {
+                continue;
+            }
+        }
+
+        // Strict Zip-Slip Prevention
+        let enclosed = match file.enclosed_name() {
+            Some(path) => path.to_owned(),
+            None => continue,
+        };
+
+        let outpath = retail_dir.join(&enclosed);
+
+        if let Ok(normalized) = outpath.canonicalize() {
+            if !normalized.starts_with(&canonical_retail) {
+                return Err("Sicherheitsfehler: Ungültiger Dateipfad im Archiv (Zip-Slip)".to_string());
+            }
+        } else {
+            let mut check_ancestor = outpath.as_path();
+            while let Some(parent) = check_ancestor.parent() {
+                if let Ok(canon_parent) = parent.canonicalize() {
+                    if !canon_parent.starts_with(&canonical_retail) {
+                        return Err("Sicherheitsfehler: Zielverzeichnis liegt außerhalb des WoW-Ordners".to_string());
+                    }
+                    break;
+                }
+                check_ancestor = parent;
+            }
+        }
+
+        if file.name().ends_with('/') || file.name().ends_with('\\') {
+            fs::create_dir_all(&outpath).map_err(|e| e.to_string())?;
+        } else {
+            if let Some(p) = outpath.parent() {
+                if !p.exists() {
+                    fs::create_dir_all(p).map_err(|e| e.to_string())?;
+                }
+            }
+
+            let mut outfile = fs::File::create(&outpath).map_err(|e| e.to_string())?;
+            loop {
+                match file.read(&mut buffer) {
+                    Ok(0) => break,
+                    Ok(n) => {
+                        use std::io::Write;
+                        outfile.write_all(&buffer[..n]).map_err(|e| e.to_string())?;
+                        total_bytes += n as u64;
+                    }
+                    Err(e) => return Err(format!("Fehler beim Entpacken: {}", e)),
+                }
+            }
+            files_restored += 1;
+        }
+    }
+
+    Ok(RestoreStats {
+        files_restored,
+        total_bytes,
+    })
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -880,6 +1050,7 @@ fn main() {
                 let _ = w.set_focus();
             }
         }))
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -973,7 +1144,8 @@ fn main() {
             is_wow_running,
             minimize_window,
             close_window,
-            export_wow_backup
+            export_wow_backup,
+            restore_wow_backup
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

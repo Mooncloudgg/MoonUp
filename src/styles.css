@@ -1270,3 +1270,39 @@ input:checked + .slider:before { transform: translateX(16px); }
   background: var(--accent-hover);
   box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);
 }
+
+/* ── Addon Dependency Badge ── */
+.addon-dep-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  color: var(--accent);
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-top: 2px;
+  width: fit-content;
+}
+
+.addon-dep-badge svg {
+  opacity: 0.8;
+}
+
+/* ── Download Progress Button ── */
+.btn-progress-card {
+  position: relative;
+  overflow: hidden;
+  min-width: 90px;
+}
+
+.btn-progress-bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+  transition: width 0.1s ease;
+}
