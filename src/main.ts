@@ -998,15 +998,15 @@ window.addEventListener("DOMContentLoaded", async () => {
       let authFailed = false;
 
       try {
-        // Addons einzeln mit 5-Sekunden-Timeout prüfen (verhindert IPC- und Netzwerk-Stau)
-        for (const addon of ADDONS) {
+        // Parallel in echten Background-Worker-Threads prüfen (blockiert die UI 0 Millisekunden)
+        await Promise.all(ADDONS.map(async (addon) => {
           try {
             // IMMER die lokal installierte Version ermitteln (auch ohne Auth)
             const localVer = await withTimeout<string>(
               invoke("get_installed_version", {
                 path: wowPath, folder: addon.folder, search: addon.search,
               }),
-              4000,
+              3000,
               "Unbekannt"
             );
             const prevLocal = localStorage.getItem(`version_${addon.folder}`);
@@ -1021,7 +1021,7 @@ window.addEventListener("DOMContentLoaded", async () => {
                 invoke("check_for_updates", {
                   token: authToken, repo: addon.repo, provider: addon.provider,
                 }),
-                5000,
+                4000,
                 ""
               );
 
@@ -1043,7 +1043,7 @@ window.addEventListener("DOMContentLoaded", async () => {
               authFailed = true;
             }
           }
-        }
+        }));
 
         if (authFailed) {
           await logout(true, "Sitzung abgelaufen oder Zugriff verweigert.");

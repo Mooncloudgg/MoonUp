@@ -130,10 +130,6 @@ fn get_download_client() -> Client {
         .unwrap_or_else(|_| Client::new())
 }
 
-fn get_http_client() -> Client {
-    get_api_client()
-}
-
 fn resolve_addon_path(user_path: &str) -> PathBuf {
     let clean_str = user_path.trim_end_matches(['/', '\\']);
     let p = PathBuf::from(clean_str);
@@ -195,7 +191,11 @@ fn clean_wow_string(input: &str) -> String {
 }
 
 #[tauri::command]
-fn detect_wow_path() -> Option<String> {
+async fn detect_wow_path() -> Option<String> {
+    tauri::async_runtime::spawn_blocking(detect_wow_path_sync).await.unwrap_or(None)
+}
+
+fn detect_wow_path_sync() -> Option<String> {
     let candidate_paths = [
         r"C:\Program Files (x86)\World of Warcraft\_retail_\Interface\AddOns",
         r"C:\Program Files\World of Warcraft\_retail_\Interface\AddOns",
@@ -242,7 +242,17 @@ fn detect_wow_path() -> Option<String> {
 }
 
 #[tauri::command]
-fn verify_session(token: String) -> VerifyResult {
+async fn verify_session(token: String) -> VerifyResult {
+    tauri::async_runtime::spawn_blocking(move || verify_session_sync(token))
+        .await
+        .unwrap_or_else(|_| VerifyResult {
+            valid: false,
+            status: 0,
+            message: "Interner Task-Fehler".to_string(),
+        })
+}
+
+fn verify_session_sync(token: String) -> VerifyResult {
     if token.trim().is_empty() {
         return VerifyResult {
             valid: false,
@@ -251,7 +261,7 @@ fn verify_session(token: String) -> VerifyResult {
         };
     }
 
-    let client = get_http_client();
+    let client = get_api_client();
     let url = format!("{}/api/version?repo=Mooncloudgg/MooncloudTools", API_BASE);
 
     let res = client.get(&url)
@@ -297,7 +307,15 @@ fn verify_session(token: String) -> VerifyResult {
 }
 
 #[tauri::command]
-fn get_installed_version(path: String, folder: String, _search: String) -> String {
+async fn get_installed_version(path: String, folder: String, search: String) -> String {
+    tauri::async_runtime::spawn_blocking(move || {
+        get_installed_version_sync(path, folder, search)
+    })
+    .await
+    .unwrap_or_else(|_| "Unbekannt".to_string())
+}
+
+fn get_installed_version_sync(path: String, folder: String, _search: String) -> String {
     let addon_root = resolve_addon_path(&path);
     let full_addon_path = addon_root.join(&folder);
     
@@ -388,7 +406,15 @@ fn get_installed_version(path: String, folder: String, _search: String) -> Strin
 }
 
 #[tauri::command]
-fn check_for_updates(token: String, repo: String, provider: Option<String>) -> Result<String, String> {
+async fn check_for_updates(token: String, repo: String, provider: Option<String>) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        check_for_updates_sync(token, repo, provider)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn check_for_updates_sync(token: String, repo: String, provider: Option<String>) -> Result<String, String> {
     let client = get_api_client();
     let prov = provider.unwrap_or_else(|| "mooncloud".to_string());
 
@@ -527,7 +553,15 @@ fn check_for_updates(token: String, repo: String, provider: Option<String>) -> R
 }
 
 #[tauri::command]
-fn install_addon(app: tauri::AppHandle, token: String, repo: String, _name: String, path: String, provider: Option<String>, direct_url: Option<String>, addon_id: Option<String>) -> Result<(), String> {
+async fn install_addon(app: tauri::AppHandle, token: String, repo: String, name: String, path: String, provider: Option<String>, direct_url: Option<String>, addon_id: Option<String>) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        install_addon_sync(app, token, repo, name, path, provider, direct_url, addon_id)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn install_addon_sync(app: tauri::AppHandle, token: String, repo: String, _name: String, path: String, provider: Option<String>, direct_url: Option<String>, addon_id: Option<String>) -> Result<(), String> {
     use std::io::Read;
 
     if token.trim().is_empty() {
@@ -767,7 +801,15 @@ fn install_addon(app: tauri::AppHandle, token: String, repo: String, _name: Stri
 }
 
 #[tauri::command]
-fn uninstall_addon(path: String, name: String) -> Result<(), String> {
+async fn uninstall_addon(path: String, name: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        uninstall_addon_sync(path, name)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn uninstall_addon_sync(path: String, name: String) -> Result<(), String> {
     let target = resolve_addon_path(&path).join(&name);
     if target.exists() { 
         fs::remove_dir_all(&target).map_err(|e| format!("Konnte Ordner nicht entfernen: {}", e))?; 
@@ -813,7 +855,15 @@ fn set_close_to_tray(enabled: bool) {
 }
 
 #[tauri::command]
-fn sync_addon_bridge(path: String, auto_update_enabled: bool, is_dev_version: bool) -> Result<(), String> {
+async fn sync_addon_bridge(path: String, auto_update_enabled: bool, is_dev_version: bool) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        sync_addon_bridge_sync(path, auto_update_enabled, is_dev_version)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn sync_addon_bridge_sync(path: String, auto_update_enabled: bool, is_dev_version: bool) -> Result<(), String> {
     let addon_dir = resolve_addon_path(&path);
     let bridge_file = addon_dir.join("MooncloudTools").join("MoonupBridge.lua");
     if let Some(parent) = bridge_file.parent() {
@@ -829,7 +879,13 @@ fn sync_addon_bridge(path: String, auto_update_enabled: bool, is_dev_version: bo
 }
 
 #[tauri::command]
-fn is_wow_running() -> bool {
+async fn is_wow_running() -> bool {
+    tauri::async_runtime::spawn_blocking(is_wow_running_sync)
+        .await
+        .unwrap_or(false)
+}
+
+fn is_wow_running_sync() -> bool {
     #[cfg(target_os = "windows")]
     {
         use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
@@ -905,7 +961,15 @@ fn close_window(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
-fn export_wow_backup(wow_path: String, target_zip_path: String) -> Result<u64, String> {
+async fn export_wow_backup(wow_path: String, target_zip_path: String) -> Result<u64, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        export_wow_backup_sync(wow_path, target_zip_path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn export_wow_backup_sync(wow_path: String, target_zip_path: String) -> Result<u64, String> {
     use std::fs::File;
     use std::io::{Read, Write};
     use walkdir::WalkDir;
@@ -995,7 +1059,15 @@ fn export_wow_backup(wow_path: String, target_zip_path: String) -> Result<u64, S
 }
 
 #[tauri::command]
-fn restore_wow_backup(wow_path: String, zip_path: String) -> Result<RestoreStats, String> {
+async fn restore_wow_backup(wow_path: String, zip_path: String) -> Result<RestoreStats, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        restore_wow_backup_sync(wow_path, zip_path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn restore_wow_backup_sync(wow_path: String, zip_path: String) -> Result<RestoreStats, String> {
     use std::fs::File;
     use std::io::Read;
 
